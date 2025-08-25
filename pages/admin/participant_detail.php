@@ -5,8 +5,9 @@ require_once __DIR__ . '/../../bootstrap.php';
 requireAdmin();
 
 $participantId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$participantEmail = isset($_GET['email']) ? trim($_GET['email']) : '';
 
-if ($participantId === 0) {
+if ($participantId === 0 && empty($participantEmail)) {
     header("Location: participants.php");
     exit();
 }
@@ -14,13 +15,25 @@ if ($participantId === 0) {
 try {
     $db = getDBConnection();
     
-    // Ambil data participant
-    $query = "SELECT * FROM participants WHERE id = :id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(":id", $participantId);
-    $stmt->execute();
-    
-    $participant = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($participantId === 0 && !empty($participantEmail)) {
+        // Cari by email
+        $query = "SELECT * FROM participants WHERE email = :email";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(":email", $participantEmail);
+        $stmt->execute();
+        $participant = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($participant) {
+            $participantId = $participant['id'];
+        }
+    } else {
+        // Ambil data participant by ID
+        $query = "SELECT * FROM participants WHERE id = :id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(":id", $participantId);
+        $stmt->execute();
+        $participant = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
     
     if (!$participant) {
         header("Location: participants.php");

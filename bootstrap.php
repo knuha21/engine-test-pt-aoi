@@ -56,6 +56,16 @@ function requireAdmin() {
     }
 }
 
+// Function untuk redirect berdasarkan role
+function redirectByRole() {
+    if (isAdmin()) {
+        header("Location: pages/admin/dashboard.php");
+    } else {
+        header("Location: pages/dashboard.php");
+    }
+    exit();
+}
+
 // Function untuk mendapatkan hasil test
 function getTestResults($testType, $testId = null) {
     try {

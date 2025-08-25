@@ -3,7 +3,11 @@ require_once 'bootstrap.php';
 
 // Redirect jika sudah login
 if (isLoggedIn()) {
-    header("Location: pages/dashboard.php");
+    if (isAdmin()) {
+        header("Location: pages/admin/dashboard.php");
+    } else {
+        header("Location: pages/dashboard.php");
+    }
     exit();
 }
 
@@ -32,7 +36,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['participant_email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
                 
-                header("Location: pages/dashboard.php");
+                // Redirect berdasarkan role
+                if ($user['role'] === 'admin') {
+                    header("Location: pages/admin/dashboard.php");
+                } else {
+                    header("Location: pages/dashboard.php");
+                }
                 exit();
             } else {
                 $error = "Email atau password salah.";
@@ -73,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="email" id="email" name="email" required>
             </div>
             
-                        <div class="form-group">
+            <div class="form-group">
                 <label for="password">Password:</label>
                 <input type="password" id="password" name="password" required>
             </div>

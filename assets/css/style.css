@@ -799,3 +799,69 @@ input[type="text"], input[type="email"], input[type="number"], select {
 .btn-back:hover {
     background-color: #2980b9;
 }
+
+
+/* Admin Dashboard Specific Styles */
+.user-info {
+    background-color: #e8f4fd;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border-left: 4px solid #3498db;
+}
+
+.user-info p {
+    margin: 5px 0;
+    color: #2c3e50;
+}
+
+.live-clock {
+    background-color: #34495e;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    margin: 15px 0;
+    font-family: 'Courier New', monospace;
+}
+
+.live-clock .time {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.live-clock .date {
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+
+/* Stat cards improvement */
+.admin-card h3 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+.admin-card p {
+    margin: 5px 0;
+    color: #7f8c8d;
+}
+
+/* Grid layout improvement */
+.admin-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Responsive design for admin */
+@media (max-width: 768px) {
+    .admin-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-info {
+        text-align: center;
+    }
+}

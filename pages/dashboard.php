@@ -5,6 +5,12 @@ require_once __DIR__ . '/../bootstrap.php';
 // Pastikan user sudah login
 requireLogin();
 
+// Jika admin, redirect ke admin dashboard
+if (isAdmin()) {
+    header("Location: admin/dashboard.php");
+    exit();
+}
+
 // Get database connection
 $db = getDBConnection();
 
@@ -44,15 +50,14 @@ try {
 <body>
     <div class="container">
         <header>
-            <h1>Dashboard <?php echo isAdmin() ? 'Admin' : 'Peserta'; ?></h1>
-            <p>Selamat datang, <?php echo htmlspecialchars($participant['name']); ?>!</p>
-            <p>Email: <?php echo htmlspecialchars($participant['email']); ?></p>
-            <p>Role: <?php echo ucfirst($participant['role']); ?></p>
+            <h1>Dashboard Peserta</h1>
+            <div class="user-info">
+                <p>Selamat datang, <?php echo htmlspecialchars($participant['name']); ?>!</p>
+                <p>Email: <?php echo htmlspecialchars($participant['email']); ?></p>
+            </div>
             <div class="user-actions">
                 <a href="../logout.php" class="btn-logout">Logout</a>
-                <?php if (!isAdmin()): ?>
                 <a href="../profile.php" class="btn-profile">Edit Profil</a>
-                <?php endif; ?>
             </div>
         </header>
         
@@ -68,38 +73,6 @@ try {
         </div>
         <?php endif; ?>
         
-        <?php if (isAdmin()): ?>
-        <div class="admin-section">
-            <h2>Menu Admin</h2>
-            <div class="admin-cards">
-                <div class="admin-card">
-                    <h3>Dashboard Admin</h3>
-                    <p>Panel administrasi lengkap</p>
-                    <a href="admin/dashboard.php" class="btn-admin">Dashboard Admin</a>
-                </div>
-
-                <div class="admin-card">
-                    <h3>Kelola Peserta</h3>
-                    <p>Lihat dan kelola data peserta</p>
-                    <a href="admin/participants.php" class="btn-admin">Kelola</a>
-                </div>
-
-                <div class="admin-card">
-                    <h3>Kelola Hasil Test</h3>
-                    <p>Lihat semua hasil test peserta</p>
-                    <a href="admin/results.php" class="btn-admin">Kelola</a>
-                </div>
-
-                <div class="admin-card">
-                    <h3>Kelola Norma</h3>
-                    <p>Kelola data norma test</p>
-                    <a href="admin/norms.php" class="btn-admin">Kelola</a>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-        
-        <?php if (!isAdmin()): ?>
         <div class="dashboard-section">
             <h2>Pilih Jenis Test</h2>
             <div class="test-cards">
@@ -128,9 +101,7 @@ try {
                 </div>
             </div>
         </div>
-        <?php endif; ?>
         
-        <?php if (!isAdmin()): ?>
         <div class="history-section">
             <h2>Riwayat Test Terbaru</h2>
             <?php if (count($testHistory) > 0): ?>
@@ -162,7 +133,6 @@ try {
             </div>
             <?php endif; ?>
         </div>
-        <?php endif; ?>
 
     </div>
 </body>
