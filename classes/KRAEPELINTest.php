@@ -4,7 +4,7 @@ if (!class_exists('Database')) {
     require_once __DIR__ . '/Database.php';
 }
 
-class KRAEPLINTest {
+class KRAEPELINTest {
     private $db;
     
     public function __construct() {
@@ -45,11 +45,15 @@ class KRAEPLINTest {
                     $angka2 = $numbers[$index];
                     $hasilBenar = ($angka1 + $angka2) % 10; // Digit terakhir
                     
+                    error_log("Kolom $kolom, Soal $index: $angka1 + $angka2 = " . ($angka1 + $angka2) . " → Benar: $hasilBenar, Jawaban: $jawab");
+                    
                     if (intval($jawab) === $hasilBenar) {
                         $score++;
                     }
                 }
             }
+        } else {
+            error_log("Numbers not found in session for column $kolom");
         }
         
         return $score;
@@ -114,7 +118,7 @@ class KRAEPLINTest {
     public function simpanHasilTest($participant_id, $results) {
         try {
             $query = "INSERT INTO test_results (participant_id, test_type, results, created_at) 
-                     VALUES (:participant_id, 'KRAEPLIN', :results, NOW())";
+                     VALUES (:participant_id, 'KRAEPELIN', :results, NOW())";
             
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(":participant_id", $participant_id);
@@ -142,9 +146,31 @@ class KRAEPLINTest {
                 return false;
             }
         } catch (PDOException $e) {
-            error_log("Error saving KRAEPLIN test results: " . $e->getMessage());
+            error_log("Error saving KRAEPELIN test results: " . $e->getMessage());
             error_log("Error details: " . $e->getTraceAsString());
             return false;
+        }
+    }
+    
+    // Method baru untuk mengambil hasil dari database
+    public function getHasilTest($participant_id, $test_id = null) {
+        try {
+            if ($test_id) {
+                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND id = :test_id AND test_type = 'KRAEPELIN'";
+                $stmt = $this->db->prepare($query);
+                $stmt->bindParam(":participant_id", $participant_id);
+                $stmt->bindParam(":test_id", $test_id);
+            } else {
+                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND test_type = 'KRAEPELIN' ORDER BY created_at DESC";
+                $stmt = $this->db->prepare($query);
+                $stmt->bindParam(":participant_id", $participant_id);
+            }
+            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting test results: " . $e->getMessage());
+            return [];
         }
     }
 }

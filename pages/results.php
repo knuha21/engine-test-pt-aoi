@@ -13,61 +13,6 @@ $chartData = [];
 $error = '';
 $testDate = '';
 
-try {
-    $db = getDBConnection();
-    
-    if ($testId) {
-        // Ambil hasil spesifik dari database berdasarkan ID
-        $query = "SELECT * FROM test_results WHERE id = :id AND participant_id = :participant_id";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":id", $testId);
-        $stmt->bindParam(":participant_id", $_SESSION['participant_id']);
-        $stmt->execute();
-        
-        if ($stmt->rowCount() > 0) {
-            $testData = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Pastikan test type sesuai
-            if (strtoupper($testData['test_type']) === strtoupper($testType)) {
-                $results = json_decode($testData['results'], true);
-                $testDate = $testData['created_at'];
-                
-                // Generate chart data jika diperlukan
-                if ($testType == 'tiki' || $testType == 'ist') {
-                    $chartData = generateChartData($results);
-                }
-            } else {
-                $error = "Jenis test tidak sesuai dengan ID test.";
-            }
-        } else {
-            $error = "Data hasil test tidak ditemukan.";
-        }
-    } else {
-        // Ambil hasil terbaru dari database
-        $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND test_type = :test_type ORDER BY created_at DESC LIMIT 1";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":participant_id", $_SESSION['participant_id']);
-        $stmt->bindValue(":test_type", strtoupper($testType));
-        $stmt->execute();
-        
-        if ($stmt->rowCount() > 0) {
-            $testData = $stmt->fetch(PDO::FETCH_ASSOC);
-            $results = json_decode($testData['results'], true);
-            $testId = $testData['id'];
-            $testDate = $testData['created_at'];
-            
-            if ($testType == 'tiki' || $testType == 'ist') {
-                $chartData = generateChartData($results);
-            }
-        } else {
-            $error = "Belum ada hasil test untuk " . strtoupper($testType) . ". Silakan kerjakan test terlebih dahulu.";
-        }
-    }
-} catch (PDOException $e) {
-    $error = "Error mengambil data hasil: " . $e->getMessage();
-    error_log("Results page error: " . $e->getMessage());
-}
-
 // Function untuk generate chart data
 function generateChartData($results) {
     $dataGrafik = [];
@@ -83,6 +28,74 @@ function generateChartData($results) {
         }
     }
     return $dataGrafik;
+}
+
+try {
+    $db = getDBConnection();
+    
+    if ($testId && $testId > 0) {
+        // Ambil hasil spesifik dari database berdasarkan ID
+        $query = "SELECT * FROM test_results WHERE id = :id AND participant_id = :participant_id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(":id", $testId);
+        $stmt->bindParam(":participant_id", $_SESSION['participant_id']);
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $testData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Pastikan test type sesuai
+            if (strtoupper($testData['test_type']) === strtoupper($testType)) {
+                $results = json_decode($testData['results'], true);
+                $testDate = $testData['created_at'];
+                
+                if ($results === null) {
+                    $error = "Error decoding JSON results: " . json_last_error_msg();
+                    error_log("JSON decode error: " . json_last_error_msg());
+                } else {
+                    // Generate chart data jika diperlukan
+                    if ($testType == 'tiki' || $testType == 'ist') {
+                        $chartData = generateChartData($results);
+                    }
+                }
+            } else {
+                $error = "Jenis test tidak sesuai dengan ID test. Expected: " . strtoupper($testType) . ", Found: " . $testData['test_type'];
+                error_log("Test type mismatch: " . $error);
+            }
+        } else {
+            $error = "Data hasil test tidak ditemukan untuk ID: " . $testId;
+            error_log("Test results not found for ID: " . $testId);
+        }
+    } else {
+        // Ambil hasil terbaru dari database
+        $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND test_type = :test_type ORDER BY created_at DESC LIMIT 1";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(":participant_id", $_SESSION['participant_id']);
+        $stmt->bindValue(":test_type", strtoupper($testType));
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $testData = $stmt->fetch(PDO::FETCH_ASSOC);
+            $results = json_decode($testData['results'], true);
+            $testId = $testData['id'];
+            $testDate = $testData['created_at'];
+            
+            if ($results === null) {
+                $error = "Error decoding JSON results: " . json_last_error_msg();
+                error_log("JSON decode error: " . json_last_error_msg());
+            } else {
+                if ($testType == 'tiki' || $testType == 'ist') {
+                    $chartData = generateChartData($results);
+                }
+            }
+        } else {
+            $error = "Belum ada hasil test untuk " . strtoupper($testType) . ". Silakan kerjakan test terlebih dahulu.";
+            error_log("No test results found for type: " . $testType);
+        }
+    }
+} catch (PDOException $e) {
+    $error = "Error mengambil data hasil: " . $e->getMessage();
+    error_log("Results page error: " . $e->getMessage());
 }
 
 // Debug: lihat data yang diambil
@@ -113,7 +126,7 @@ $chartDataJson = json_encode($chartData);
             <?php if ($testDate): ?>
             <p>Tanggal Test: <?php echo date('d/m/Y H:i', strtotime($testDate)); ?></p>
             <?php endif; ?>
-            <?php if ($testId): ?>
+            <?php if ($testId && $testId > 0): ?>
             <p>ID Test: <?php echo $testId; ?></p>
             <?php endif; ?>
         </header>
@@ -128,7 +141,8 @@ $chartDataJson = json_encode($chartData);
                 <strong>Debug Info:</strong><br>
                 Test Type: <?php echo $testType; ?><br>
                 Test ID: <?php echo $testId ? $testId : 'Not specified'; ?><br>
-                Participant ID: <?php echo $_SESSION['participant_id']; ?>
+                Participant ID: <?php echo $_SESSION['participant_id']; ?><br>
+                Session: <?php echo session_id(); ?>
             </div>
             <?php endif; ?>
         </div>
@@ -256,7 +270,7 @@ $chartDataJson = json_encode($chartData);
         <div class="navigation-buttons">
             <a href="dashboard.php" class="btn-back">Kembali ke Dashboard</a>
             
-            <?php if ($testId): ?>
+            <?php if ($testId && $testId > 0): ?>
             <a href="history.php?test=<?php echo $testType; ?>" class="btn-history">Lihat Riwayat Test</a>
             <?php endif; ?>
         </div>

@@ -58,6 +58,11 @@ try {
             echo "</tr>";
         }
         echo "</table>";
+        
+        // Show detailed view of the first result
+        echo "<h2>Detailed View of First Result:</h2>";
+        $firstResult = $results[0];
+        echo "<pre>" . htmlspecialchars($firstResult['results']) . "</pre>";
     } else {
         echo "No test results found<br>";
     }
@@ -66,10 +71,10 @@ try {
     echo "Error: " . $e->getMessage();
 }
 
-echo "<h2>PHP Error Log (Last 10 lines):</h2>";
+echo "<h2>PHP Error Log (Last 20 lines):</h2>";
 $logFile = ini_get('error_log');
 if ($logFile && file_exists($logFile)) {
-    $logContent = `tail -n 20 "$logFile"`;
+    $logContent = `tail -n 20 "$logFile" 2>&1`;
     echo "<pre>" . htmlspecialchars($logContent) . "</pre>";
 } else {
     echo "Error log file not found: " . $logFile;
@@ -78,7 +83,14 @@ if ($logFile && file_exists($logFile)) {
 echo "<h2>Session Data:</h2>";
 echo "<pre>" . print_r($_SESSION, true) . "</pre>";
 
+echo "<h2>POST Data:</h2>";
+echo "<pre>" . print_r($_POST, true) . "</pre>";
+
+echo "<h2>GET Data:</h2>";
+echo "<pre>" . print_r($_GET, true) . "</pre>";
+
 echo "<br><br>";
 echo "<a href='pages/kraepelin-test.php'>Test Kraepelin</a> | ";
-echo "<a href='view_database.php'>View Database</a>";
+echo "<a href='view_database.php'>View Database</a> | ";
+echo "<a href='check_database.php'>Check Database</a>";
 ?>

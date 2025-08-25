@@ -9,46 +9,6 @@ require_once 'bootstrap.php';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Akses Ditolak - Engine Alat Test</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        .unauthorized-container {
-            max-width: 500px;
-            margin: 100px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .unauthorized-icon {
-            font-size: 64px;
-            color: #e74c3c;
-            margin-bottom: 20px;
-        }
-        
-        .unauthorized-container h1 {
-            color: #e74c3c;
-            margin-bottom: 10px;
-        }
-        
-        .unauthorized-container p {
-            color: #7f8c8d;
-            margin-bottom: 20px;
-        }
-        
-        .btn-back {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        
-        .btn-back:hover {
-            background-color: #2980b9;
-        }
-    </style>
 </head>
 <body>
     <div class="unauthorized-container">

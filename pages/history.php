@@ -54,7 +54,7 @@ try {
             <div class="filter-buttons">
                 <a href="history.php?test=all" class="btn-filter <?php echo $testType == 'all' ? 'active' : ''; ?>">Semua Test</a>
                 <a href="history.php?test=tiki" class="btn-filter <?php echo $testType == 'tiki' ? 'active' : ''; ?>">TIKI</a>
-                <a href="history.php?test=kraepelin" class="btn-filter <?php echo $testType == 'kraepelin' ? 'active' : ''; ?>">KRAEPLIN</a>
+                <a href="history.php?test=kraepelin" class="btn-filter <?php echo $testType == 'kraepelin' ? 'active' : ''; ?>">KRAEPELIN</a>
                 <a href="history.php?test=pauli" class="btn-filter <?php echo $testType == 'pauli' ? 'active' : ''; ?>">PAULI</a>
                 <a href="history.php?test=ist" class="btn-filter <?php echo $testType == 'ist' ? 'active' : ''; ?>">IST</a>
             </div>

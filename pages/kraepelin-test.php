@@ -8,30 +8,25 @@ requireLogin();
 // Jika form disubmit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
-        // Pastikan class KRAEPLINTest ada
-        if (!class_exists('KRAEPLINTest')) {
-            throw new Exception('KRAEPLINTest class not found');
+        // Pastikan class KRAEPELINTest ada
+        if (!class_exists('KRAEPELINTest')) {
+            throw new Exception('KRAEPELINTest class not found');
         }
         
-        $kraepelinTest = new KRAEPLINTest();
+        $kraepelinTest = new KRAEPELINTest();
         $lembarKerja = $_POST['worksheet'];
         
-        // Debug: lihat data yang diterima
         error_log("Kraepelin data received: " . print_r($lembarKerja, true));
         
         $hasilKerja = $kraepelinTest->prosesLembarKerja($lembarKerja);
         $hasilOlahan = $kraepelinTest->olahData($hasilKerja);
         
-        // Debug: lihat hasil olahan
         error_log("Kraepelin results: " . print_r($hasilOlahan, true));
         
         // Simpan ke database
-        $db = getDBConnection();
-        if ($kraepelinTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
-            // Dapatkan ID test yang baru saja disimpan
-            $testId = $db->lastInsertId();
-            
-            // Debug: lihat ID test
+        $testId = $kraepelinTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan);
+        
+        if ($testId !== false) {
             error_log("Test saved with ID: " . $testId);
             
             // Redirect ke results dengan ID
@@ -66,70 +61,13 @@ $_SESSION['kraepelin_numbers'] = $worksheetData;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KRAEPLIN Test - PT. Apparel One Indonesia</title>
+    <title>KRAEPELIN Test - PT. Apparel One Indonesia</title>
     <link rel="stylesheet" href="../assets/css/style.css">
-    <style>
-        .worksheet-section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-        .number-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-        }
-        .number {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            text-align: center;
-            line-height: 30px;
-            background-color: #3498db;
-            color: white;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-        .answer-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-bottom: 15px;
-        }
-        .answer-row input {
-            width: 40px;
-            height: 40px;
-            text-align: center;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-        }
-        .answer-row input:focus {
-            border-color: #3498db;
-            outline: none;
-        }
-        .operator {
-            font-weight: bold;
-            margin: 0 5px;
-        }
-        .debug-info {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-family: monospace;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Test KRAEPLIN</h1>
+            <h1>Test KRAEPELIN</h1>
             <p>Alat tes kinerja dan kecepatan untuk melihat performa kerja dalam "sprint" pendek yang berulang.</p>
         </header>
         
@@ -183,6 +121,7 @@ $_SESSION['kraepelin_numbers'] = $worksheetData;
             <?php endforeach; ?>
             
             <button type="submit" class="btn-submit" id="submitBtn">Kirim Jawaban</button>
+            <button type="button" onclick="window.history.back();" class="btn-back">Kembali</button>
         </form>
     </div>
 
@@ -191,7 +130,7 @@ $_SESSION['kraepelin_numbers'] = $worksheetData;
         document.addEventListener('DOMContentLoaded', function() {
             const inputs = document.querySelectorAll('.kraepelin-input');
             
-            inputs.forEach((input, index) {
+            inputs.forEach((input, index) => {
                 // Auto-tab ke next input setelah mengisi
                 input.addEventListener('input', function() {
                     if (this.value.length === 1 && index < inputs.length - 1) {

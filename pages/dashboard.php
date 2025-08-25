@@ -5,17 +5,19 @@ require_once __DIR__ . '/../bootstrap.php';
 // Pastikan user sudah login
 requireLogin();
 
+// Get database connection
+$db = getDBConnection();
+
 // Ambil data peserta
 try {
-    $db = getDBConnection();
     $query = "SELECT * FROM participants WHERE id = :id";
     $stmt = $db->prepare($query);
     $stmt->bindParam(":id", $_SESSION['participant_id']);
     $stmt->execute();
     $participant = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error = "Error mengambil data peserta: " . $e->getMessage();
-    $participant = ['name' => 'Peserta'];
+    $dashboard_error = "Error mengambil data peserta: " . $e->getMessage();
+    $participant = ['name' => 'Peserta', 'email' => 'N/A', 'role' => 'peserta'];
 }
 
 // Ambil riwayat test
@@ -26,7 +28,7 @@ try {
     $stmt->execute();
     $testHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $error = "Error mengambil riwayat test: " . $e->getMessage();
+    $test_history_error = "Error mengambil riwayat test: " . $e->getMessage();
     $testHistory = [];
 }
 ?>
@@ -46,11 +48,23 @@ try {
             <p>Selamat datang, <?php echo htmlspecialchars($participant['name']); ?>!</p>
             <p>Email: <?php echo htmlspecialchars($participant['email']); ?></p>
             <p>Role: <?php echo ucfirst($participant['role']); ?></p>
+            <div class="user-actions">
+                <a href="../logout.php" class="btn-logout">Logout</a>
+                <?php if (!isAdmin()): ?>
+                <a href="../profile.php" class="btn-profile">Edit Profil</a>
+                <?php endif; ?>
+            </div>
         </header>
         
-        <?php if (isset($error)): ?>
+        <?php if (isset($dashboard_error)): ?>
         <div class="error-message">
-            <?php echo $error; ?>
+            <?php echo $dashboard_error; ?>
+        </div>
+        <?php endif; ?>
+        
+        <?php if (isset($test_history_error)): ?>
+        <div class="error-message">
+            <?php echo $test_history_error; ?>
         </div>
         <?php endif; ?>
         
@@ -59,18 +73,24 @@ try {
             <h2>Menu Admin</h2>
             <div class="admin-cards">
                 <div class="admin-card">
+                    <h3>Dashboard Admin</h3>
+                    <p>Panel administrasi lengkap</p>
+                    <a href="admin/dashboard.php" class="btn-admin">Dashboard Admin</a>
+                </div>
+
+                <div class="admin-card">
                     <h3>Kelola Peserta</h3>
                     <p>Lihat dan kelola data peserta</p>
                     <a href="admin/participants.php" class="btn-admin">Kelola</a>
                 </div>
-                
+
                 <div class="admin-card">
                     <h3>Kelola Hasil Test</h3>
                     <p>Lihat semua hasil test peserta</p>
                     <a href="admin/results.php" class="btn-admin">Kelola</a>
                 </div>
-                
-                                <div class="admin-card">
+
+                <div class="admin-card">
                     <h3>Kelola Norma</h3>
                     <p>Kelola data norma test</p>
                     <a href="admin/norms.php" class="btn-admin">Kelola</a>
@@ -79,6 +99,7 @@ try {
         </div>
         <?php endif; ?>
         
+        <?php if (!isAdmin()): ?>
         <div class="dashboard-section">
             <h2>Pilih Jenis Test</h2>
             <div class="test-cards">
@@ -89,8 +110,8 @@ try {
                 </div>
                 
                 <div class="test-card">
-                    <h3>KRAEPLIN Test</h3>
-                    <p>Alat tes kinerja dan kecepatan</p>
+                    <h3>KRAEPELIN Test</h3>
+                    <p>Alat tes untuk menguji kinerja dan kecepatan</p>
                     <a href="kraepelin-test.php" class="btn-test">Mulai Test</a>
                 </div>
                 
@@ -107,7 +128,9 @@ try {
                 </div>
             </div>
         </div>
+        <?php endif; ?>
         
+        <?php if (!isAdmin()): ?>
         <div class="history-section">
             <h2>Riwayat Test Terbaru</h2>
             <?php if (count($testHistory) > 0): ?>
@@ -139,13 +162,8 @@ try {
             </div>
             <?php endif; ?>
         </div>
-        
-        <div class="user-actions">
-            <a href="../logout.php" class="btn-logout">Logout</a>
-            <?php if (!isAdmin()): ?>
-            <a href="../profile.php" class="btn-profile">Edit Profil</a>
-            <?php endif; ?>
-        </div>
+        <?php endif; ?>
+
     </div>
 </body>
 </html>

@@ -114,6 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <?php endfor; ?>
             
             <button type="submit" class="btn-submit">Kirim Jawaban</button>
+            <button type="button" onclick="window.history.back();" class="btn-back">Kembali</button>
         </form>
     </div>
 </body>

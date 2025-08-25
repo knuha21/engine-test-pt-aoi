@@ -39,7 +39,7 @@ try {
         echo "<pre>CREATE TABLE test_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
     participant_id INT NOT NULL,
-    test_type ENUM('TIKI', 'KRAEPLIN', 'PAULI', 'IST') NOT NULL,
+    test_type ENUM('TIKI', 'KRAEPELIN', 'PAULI', 'IST') NOT NULL,
     results TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (participant_id) REFERENCES participants(id)
