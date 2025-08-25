@@ -1,0 +1,84 @@
+<?php
+require_once 'bootstrap.php';
+
+// Hanya untuk debugging
+if (!APP_DEBUG) {
+    header("Location: index.php");
+    exit();
+}
+
+echo "<h1>Detailed Debug Information</h1>";
+
+try {
+    $db = getDBConnection();
+    
+    // Check database connection
+    echo "<h2>Database Connection:</h2>";
+    if ($db) {
+        echo "✅ Database connected successfully<br>";
+        
+        // Check test_results table structure
+        $stmt = $db->query("DESCRIBE test_results");
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo "<h2>Table Structure:</h2>";
+        echo "<table border='1' cellpadding='5'>";
+        echo "<tr><th>Field</th><th>Type</th><th>Null</th><th>Key</th></tr>";
+        foreach ($columns as $column) {
+            echo "<tr>";
+            echo "<td>{$column['Field']}</td>";
+            echo "<td>{$column['Type']}</td>";
+            echo "<td>{$column['Null']}</td>";
+            echo "<td>{$column['Key']}</td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+        
+    } else {
+        echo "❌ Database connection failed<br>";
+    }
+    
+    // Show recent test results
+    echo "<h2>Recent Test Results:</h2>";
+    $query = "SELECT * FROM test_results ORDER BY id DESC LIMIT 5";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (count($results) > 0) {
+        echo "<table border='1' cellpadding='10'>";
+        echo "<tr><th>ID</th><th>Participant ID</th><th>Test Type</th><th>Created At</th><th>Results Length</th></tr>";
+        foreach ($results as $row) {
+            echo "<tr>";
+            echo "<td>{$row['id']}</td>";
+            echo "<td>{$row['participant_id']}</td>";
+            echo "<td>{$row['test_type']}</td>";
+            echo "<td>{$row['created_at']}</td>";
+            echo "<td>" . strlen($row['results']) . " characters</td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+    } else {
+        echo "No test results found<br>";
+    }
+    
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+
+echo "<h2>PHP Error Log (Last 10 lines):</h2>";
+$logFile = ini_get('error_log');
+if ($logFile && file_exists($logFile)) {
+    $logContent = `tail -n 20 "$logFile"`;
+    echo "<pre>" . htmlspecialchars($logContent) . "</pre>";
+} else {
+    echo "Error log file not found: " . $logFile;
+}
+
+echo "<h2>Session Data:</h2>";
+echo "<pre>" . print_r($_SESSION, true) . "</pre>";
+
+echo "<br><br>";
+echo "<a href='pages/kraepelin-test.php'>Test Kraepelin</a> | ";
+echo "<a href='view_database.php'>View Database</a>";
+?>
