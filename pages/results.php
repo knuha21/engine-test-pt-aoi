@@ -442,7 +442,6 @@ switch (strtoupper($testType)) {
         <div class="actions">
             <a href="dashboard.php" class="btn">Kembali ke Dashboard</a>
             <a href="javascript:window.print()" class="btn btn-print">Cetak Hasil</a>
-            <a href="logout.php" class="btn btn-secondary">Logout</a>
         </div>
     </div>
 </body>
