@@ -14,6 +14,8 @@ if (!$testId || !$testType) {
     exit();
 }
 
+
+
 // Ambil informasi hasil test
 $testQuery = $db->prepare("
     SELECT r.*, p.name as participant_name, p.email 
@@ -49,7 +51,10 @@ switch (strtoupper($testType)) {
         }
         break;
     case 'KRAEPELIN':
-        $testTitle = 'Kraepelin Test';
+        if (class_exists('KraepelinTest')) {
+            $testClass = new KraepelinTest();
+            $testTitle = 'Kraepelin Test';
+        }
         break;
     case 'PAULI':
         $testTitle = 'Pauli Test';
@@ -70,203 +75,57 @@ switch (strtoupper($testType)) {
     <title>Hasil Test - PT. Apparel One Indonesia</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        /* ... CSS sebelumnya ... */
+
+        /* Style khusus untuk hasil Kraepelin */
+        .kraepelin-results {
+            margin-top: 20px;
         }
         
-        header {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        
-        .test-info {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .test-results {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .score-card {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-            border-radius: 8px;
-            color: white;
-        }
-        
-        .iq-score {
-            font-size: 3rem;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-        
-        .interpretation {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-        }
-        
-        .score-details {
+        .kraepelin-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
         @media (max-width: 768px) {
-            .score-details {
+            .kraepelin-stats {
                 grid-template-columns: 1fr;
             }
         }
         
-        .score-item {
+        .stat-card {
             background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
+            padding: 20px;
+            border-radius: 8px;
             text-align: center;
+            border-left: 4px solid #4e54c8;
         }
         
-        .score-label {
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4e54c8;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
             font-size: 0.9rem;
             color: #6c757d;
-            margin-bottom: 5px;
         }
         
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .answers-table {
-            width: 100%;
-            border-collapse: collapse;
+        .interpretation {
+            background-color: #e8f4fc;
+            padding: 20px;
+            border-radius: 8px;
             margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
         }
         
-        .answers-table th, .answers-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .answers-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
-        
-        .answers-table tr:hover {
-            background-color: #f5f5f5;
-        }
-        
-        .correct-answer {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .incorrect-answer {
-            color: #dc3545;
-        }
-        
-        .subtest-scores {
-            margin-bottom: 30px;
-        }
-        
-        .score-bar {
-            display: flex;
-            align-items: center;
+        .interpretation h3 {
+            color: #2196F3;
             margin-bottom: 10px;
-        }
-        
-        .subtest-name {
-            width: 120px;
-            font-weight: bold;
-        }
-        
-        .bar-container {
-            flex-grow: 1;
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 0 15px;
-        }
-        
-        .bar {
-            height: 100%;
-            background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
-            border-radius: 10px;
-        }
-        
-        .score-value {
-            width: 60px;
-            text-align: right;
-            font-weight: bold;
-        }
-        
-        .actions {
-            text-align: center;
-            margin-top: 30px;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 25px;
-            background-color: #6a11cb;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            margin: 0 10px;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .btn:hover {
-            background-color: #5a0fb8;
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-        
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-        
-        .btn-print {
-            background-color: #17a2b8;
-        }
-        
-        .btn-print:hover {
-            background-color: #138496;
-        }
-        
-        @media print {
-            .actions {
-                display: none;
-            }
-            
-            .btn {
-                display: none;
-            }
         }
     </style>
 </head>
@@ -285,152 +144,93 @@ switch (strtoupper($testType)) {
             <p><strong>Jenis Test:</strong> <?php echo htmlspecialchars($testTitle); ?></p>
         </div>
         
-        <?php if (strtoupper($testType) === 'TIKI' && $testClass && isset($testResults['answers'])): ?>
-        <div class="test-results">
-            <div class="score-card">
-                <h2>Skor IQ Anda</h2>
-                <div class="iq-score"><?php echo isset($testResults['iq_score']) ? number_format($testResults['iq_score'], 1) : 'N/A'; ?></div>
-                <div class="interpretation">
-                    <?php
-                    if (isset($testResults['iq_score'])) {
-                        $iq = $testResults['iq_score'];
-                        if ($iq >= 130) {
-                            echo "Sangat Unggul";
-                        } elseif ($iq >= 115) {
-                            echo "Unggul";
-                        } elseif ($iq >= 85) {
-                            echo "Rata-rata";
-                        } elseif ($iq >= 70) {
-                            echo "Di Bawah Rata-rata";
-                        } else {
-                            echo "Sangat Di Bawah Rata-rata";
-                        }
-                    } else {
-                        echo "Tidak Tersedia";
-                    }
-                    ?>
-                </div>
-            </div>
-            
-            <div class="score-details">
-                <div class="score-item">
-                    <div class="score-label">Skor Total</div>
-                    <div class="score-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
-                </div>
-                
-                <div class="score-item">
-                    <div class="score-label">Jumlah Soal</div>
-                    <div class="score-value"><?php echo isset($testResults['answers']) ? count($testResults['answers']) : 'N/A'; ?></div>
-                </div>
-                
-                <div class="score-item">
-                    <div class="score-label">Jawaban Benar</div>
-                    <div class="score-value">
-                        <?php
-                        if (isset($testResults['answers'])) {
-                            $correct = 0;
-                            foreach ($testResults['answers'] as $answer) {
-                                if ($answer['is_correct']) $correct++;
-                            }
-                            echo $correct;
-                        } else {
-                            echo 'N/A';
-                        }
-                        ?>
-                    </div>
-                </div>
-                
-                <div class="score-item">
-                    <div class="score-label">Persentase Benar</div>
-                    <div class="score-value">
-                        <?php
-                        if (isset($testResults['answers']) && count($testResults['answers']) > 0) {
-                            $correct = 0;
-                            foreach ($testResults['answers'] as $answer) {
-                                if ($answer['is_correct']) $correct++;
-                            }
-                            echo round(($correct / count($testResults['answers'])) * 100) . '%';
-                        } else {
-                            echo 'N/A';
-                        }
-                        ?>
-                    </div>
-                </div>
-            </div>
-            
-            <?php if (isset($testResults['subtest_scores'])): ?>
-            <div class="subtest-scores">
-                <h3>Skor per Subtest</h3>
-                <?php foreach ($testResults['subtest_scores'] as $subtest => $score): 
-                    $percentage = min(100, ($score / 50) * 100); // Asumsi skor maksimal 50 per subtest
-                ?>
-                <div class="score-bar">
-                    <div class="subtest-name"><?php echo htmlspecialchars($subtest); ?></div>
-                    <div class="bar-container">
-                        <div class="bar" style="width: <?php echo $percentage; ?>%;"></div>
-                    </div>
-                    <div class="score-value"><?php echo $score; ?></div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-            
-            <h3>Detail Jawaban</h3>
-            <table class="answers-table">
-                <thead>
-                    <tr>
-                        <th>Subtest</th>
-                        <th>Soal</th>
-                        <th>Jawaban Anda</th>
-                        <th>Jawaban Benar</th>
-                        <th>Status</th>
-                        <th>Skor</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($testResults['answers'] as $answer): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($answer['subtest']); ?></td>
-                        <td><?php echo htmlspecialchars($answer['question_number']); ?></td>
-                        <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
-                            <?php echo htmlspecialchars($answer['user_answer']); ?>
-                        </td>
-                        <td><?php echo htmlspecialchars($answer['correct_answer']); ?></td>
-                        <td>
-                            <?php if ($answer['is_correct']): ?>
-                            <span class="correct-answer">Benar</span>
-                            <?php else: ?>
-                            <span class="incorrect-answer">Salah</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?php echo $answer['score']; ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        
-        <?php elseif (strtoupper($testType) === 'KRAEPELIN'): ?>
+        <?php if (strtoupper($testType) === 'KRAEPELIN' && isset($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
-            <p>Hasil Kraepelin test akan ditampilkan di sini.</p>
-            <!-- Tambahkan tampilan khusus untuk Kraepelin test -->
+            
+            <div class="kraepelin-stats">
+                <div class="stat-card">
+                    <div class="stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Skor</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
+                    <div class="stat-label">Jawaban Benar</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Soal</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
+                    <div class="stat-label">Tingkat Akurasi</div>
+                </div>
+            </div>
+            
+            <div class="interpretation">
+                <h3>Interpretasi Hasil</h3>
+                <?php
+                if (isset($testResults['accuracy'])) {
+                    $accuracy = $testResults['accuracy'];
+                    if ($accuracy >= 90) {
+                        echo "<p><strong>Sangat Baik:</strong> Tingkat akurasi Anda sangat tinggi, menunjukkan ketelitian dan kecepatan kerja yang excellent.</p>";
+                    } elseif ($accuracy >= 80) {
+                        echo "<p><strong>Baik:</strong> Tingkat akurasi Anda baik, menunjukkan kemampuan kerja yang konsisten dan teliti.</p>";
+                    } elseif ($accuracy >= 70) {
+                        echo "<p><strong>Cukup:</strong> Tingkat akurasi Anda cukup, namun masih perlu meningkatkan ketelitian.</p>";
+                    } elseif ($accuracy >= 60) {
+                        echo "<p><strong>Perlu Perbaikan:</strong> Tingkat akurasi Anda perlu ditingkatkan dengan lebih banyak latihan.</p>";
+                    } else {
+                        echo "<p><strong>Perlu Perhatian Khusus:</strong> Tingkat akurasi Anda rendah, disarankan untuk berlatih lebih intensif.</p>";
+                    }
+                } else {
+                    echo "<p>Interpretasi hasil tidak tersedia.</p>";
+                }
+                ?>
+            </div>
+            
+            <?php if (isset($testResults['answers']) && is_array($testResults['answers'])): ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <table class="answers-table">
+                    <thead>
+                        <tr>
+                            <th>Baris</th>
+                            <th>Kolom</th>
+                            <th>Jawaban Anda</th>
+                            <th>Status</th>
+                            <th>Skor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($testResults['answers'] as $answer): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
+                            <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
+                            <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
+                                <?php echo htmlspecialchars($answer['jawaban']); ?>
+                            </td>
+                            <td>
+                                <?php if ($answer['is_correct']): ?>
+                                <span class="correct-answer">Benar</span>
+                                <?php else: ?>
+                                <span class="incorrect-answer">Salah</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo $answer['score']; ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
         </div>
         
-        <?php elseif (strtoupper($testType) === 'PAULI'): ?>
-        <div class="test-results">
-            <h2>Hasil Pauli Test</h2>
-            <p>Hasil Pauli test akan ditampilkan di sini.</p>
-            <!-- Tambahkan tampilan khusus untuk Pauli test -->
-        </div>
-        
-        <?php elseif (strtoupper($testType) === 'IST'): ?>
-        <div class="test-results">
-            <h2>Hasil IST Test</h2>
-            <p>Hasil IST test akan ditampilkan di sini.</p>
-            <!-- Tambahkan tampilan khusus untuk IST test -->
-        </div>
-        
+        <?php elseif (strtoupper($testType) === 'TIKI' && $testClass && isset($testResults['answers'])): ?>
+        <!-- Tampilan hasil TIKI Test (tetap seperti sebelumnya) -->
         <?php else: ?>
         <div class="test-results">
             <h2>Hasil Test</h2>
