@@ -204,6 +204,7 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             border: 2px solid #ddd;
             border-radius: 6px;
             -moz-appearance: textfield;
+            appearance: textfield;
         }
         
         /* Hilangkan panah atas-bawah pada input number */
