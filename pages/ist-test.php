@@ -90,6 +90,7 @@ foreach ($soal as $item) {
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            position: relative;
         }
         
         header {
@@ -137,17 +138,88 @@ foreach ($soal as $item) {
             margin-bottom: 5px;
         }
         
-        .timer-container {
-            background-color: #ff6b6b;
+        /* Floating Elements */
+        .floating-timer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
             color: white;
             padding: 15px 20px;
-            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
             font-size: 1.2rem;
             font-weight: bold;
+            min-width: 120px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .floating-progress {
+            position: fixed;
+            top: 90px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 150px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .progress-circle {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 10px;
+        }
+        
+        .progress-circle svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        
+        .progress-circle-bg {
+            fill: none;
+            stroke: #e6e6e6;
+            stroke-width: 3.8;
+        }
+        
+        .progress-circle-fg {
+            fill: none;
+            stroke: #ff6b6b;
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .floating-subtest-info {
+            position: fixed;
+            top: 190px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 150px;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
         }
         
         .test-content {
             padding: 25px;
+            margin-top: 30px;
         }
         
         .subtest-section {
@@ -194,6 +266,33 @@ foreach ($soal as $item) {
         @media (max-width: 768px) {
             .options-container {
                 grid-template-columns: 1fr;
+            }
+            
+            .floating-timer {
+                top: 10px;
+                right: 10px;
+                font-size: 1rem;
+                padding: 10px 15px;
+                min-width: 100px;
+            }
+            
+            .floating-progress {
+                top: 70px;
+                right: 10px;
+                padding: 10px;
+                min-width: 120px;
+            }
+            
+            .progress-circle {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .floating-subtest-info {
+                top: 140px;
+                right: 10px;
+                padding: 10px;
+                min-width: 120px;
             }
         }
         
@@ -299,7 +398,7 @@ foreach ($soal as $item) {
             transition: width 0.3s ease;
         }
         
-        .progress-text {
+        .progress-text-inline {
             display: flex;
             justify-content: space-between;
             font-size: 0.9rem;
@@ -339,6 +438,31 @@ foreach ($soal as $item) {
             <p class="subtitle">PT. Apparel One Indonesia</p>
         </header>
         
+        <!-- Floating Timer -->
+        <div class="floating-timer" id="floating-timer">
+            <div id="timer">60:00</div>
+        </div>
+        
+        <!-- Floating Progress -->
+        <div class="floating-progress" id="floating-progress">
+            <div class="progress-circle">
+                <svg viewBox="0 0 36 36">
+                    <circle class="progress-circle-bg" cx="18" cy="18" r="15.9"></circle>
+                    <circle class="progress-circle-fg" cx="18" cy="18" r="15.9" 
+                            stroke-dasharray="100, 100" id="progress-circle"></circle>
+                </svg>
+            </div>
+            <div class="progress-text">
+                <span id="progress-percentage">0%</span> selesai
+            </div>
+        </div>
+        
+        <!-- Floating Subtest Info -->
+        <div class="floating-subtest-info" id="floating-subtest-info">
+            <div id="current-subtest">Subtest 1/6</div>
+            <div id="subtest-name">Kosa Kata</div>
+        </div>
+        
         <div class="test-info">
             <p><strong>Peserta:</strong> <?php echo htmlspecialchars($participant['name']); ?> | <strong>Email:</strong> <?php echo htmlspecialchars($participant['email']); ?></p>
         </div>
@@ -361,17 +485,13 @@ foreach ($soal as $item) {
         </div>
         <?php endif; ?>
         
-        <div class="timer-container">
-            <div id="timer">Waktu: 60:00</div>
-        </div>
-        
         <div class="progress-container">
             <div class="progress-bar">
                 <div class="progress" id="progress-bar" style="width: 0%"></div>
             </div>
-            <div class="progress-text">
+            <div class="progress-text-inline">
                 <span id="progress-current">Subtest 0 dari <?php echo count($subtests); ?></span>
-                <span id="progress-percentage">0% selesai</span>
+                <span id="progress-percentage-inline">0% selesai</span>
             </div>
         </div>
         
@@ -387,61 +507,63 @@ foreach ($soal as $item) {
         </div>
         
         <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="ist-test-form">
-            <?php $subtestIndex = 0; ?>
-            <?php foreach ($subtests as $code => $subtest): ?>
-            <div class="subtest-section" id="subtest-<?php echo $code; ?>" style="<?php echo $subtestIndex > 0 ? 'display: none;' : ''; ?>">
-                <div class="subtest-header">
-                    <h3 class="subtest-title"><?php echo $subtest['name']; ?> (<?php echo $code; ?>)</h3>
-                </div>
-                
-                <?php foreach ($subtest['questions'] as $question): ?>
-                <div class="question">
-                    <div class="question-text">
-                        <strong>Soal <?php echo $question['question_number']; ?>:</strong> 
-                        <?php echo htmlspecialchars($question['question_text']); ?>
+            <div class="test-content">
+                <?php $subtestIndex = 0; ?>
+                <?php foreach ($subtests as $code => $subtest): ?>
+                <div class="subtest-section" id="subtest-<?php echo $code; ?>" style="<?php echo $subtestIndex > 0 ? 'display: none;' : ''; ?>">
+                    <div class="subtest-header">
+                        <h3 class="subtest-title"><?php echo $subtest['name']; ?> (<?php echo $code; ?>)</h3>
                     </div>
                     
-                    <div class="options-container">
-                        <label class="option">
-                            <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="A" required>
-                            <span>A. <?php echo htmlspecialchars($question['option_a']); ?></span>
-                        </label>
+                    <?php foreach ($subtest['questions'] as $question): ?>
+                    <div class="question">
+                        <div class="question-text">
+                            <strong>Soal <?php echo $question['question_number']; ?>:</strong> 
+                            <?php echo htmlspecialchars($question['question_text']); ?>
+                        </div>
                         
-                        <label class="option">
-                            <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="B">
-                            <span>B. <?php echo htmlspecialchars($question['option_b']); ?></span>
-                        </label>
+                        <div class="options-container">
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="A" required>
+                                <span>A. <?php echo htmlspecialchars($question['option_a']); ?></span>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="B">
+                                <span>B. <?php echo htmlspecialchars($question['option_b']); ?></span>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="C">
+                                <span>C. <?php echo htmlspecialchars($question['option_c']); ?></span>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="D">
+                                <span>D. <?php echo htmlspecialchars($question['option_d']); ?></span>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="E">
+                                <span>E. <?php echo htmlspecialchars($question['option_e']); ?></span>
+                            </label>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    
+                    <div class="navigation">
+                        <button type="button" class="btn btn-prev" onclick="showPrevSubtest()" <?php echo $subtestIndex === 0 ? 'disabled' : ''; ?>>Subtest Sebelumnya</button>
                         
-                        <label class="option">
-                            <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="C">
-                            <span>C. <?php echo htmlspecialchars($question['option_c']); ?></span>
-                        </label>
-                        
-                        <label class="option">
-                            <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="D">
-                            <span>D. <?php echo htmlspecialchars($question['option_d']); ?></span>
-                        </label>
-                        
-                        <label class="option">
-                            <input type="radio" name="answers[<?php echo $code; ?>][<?php echo $question['question_number']; ?>]" value="E">
-                            <span>E. <?php echo htmlspecialchars($question['option_e']); ?></span>
-                        </label>
+                        <?php if ($subtestIndex < count($subtests) - 1): ?>
+                        <button type="button" class="btn btn-next" onclick="validateAndNext('<?php echo $code; ?>')">Subtest Berikutnya</button>
+                        <?php else: ?>
+                        <button type="submit" class="btn btn-submit">Kirim Jawaban</button>
+                        <?php endif; ?>
                     </div>
                 </div>
+                <?php $subtestIndex++; ?>
                 <?php endforeach; ?>
-                
-                <div class="navigation">
-                    <button type="button" class="btn btn-prev" onclick="showPrevSubtest()" <?php echo $subtestIndex === 0 ? 'disabled' : ''; ?>>Subtest Sebelumnya</button>
-                    
-                    <?php if ($subtestIndex < count($subtests) - 1): ?>
-                    <button type="button" class="btn btn-next" onclick="validateAndNext('<?php echo $code; ?>')">Subtest Berikutnya</button>
-                    <?php else: ?>
-                    <button type="submit" class="btn btn-submit">Kirim Jawaban</button>
-                    <?php endif; ?>
-                </div>
             </div>
-            <?php $subtestIndex++; ?>
-            <?php endforeach; ?>
         </form>
     </div>
 
@@ -450,16 +572,34 @@ foreach ($soal as $item) {
         const subtests = <?php echo json_encode(array_keys($subtests)); ?>;
         let currentSubtestIndex = 0;
         let timeLeft = 60 * 60; // 60 menit dalam detik
+        const totalTime = timeLeft;
         
         // Timer untuk test IST
-        const timerElement = document.getElementById('timer');
-        
         function updateTimer() {
             const hours = Math.floor(timeLeft / 3600);
             const minutes = Math.floor((timeLeft % 3600) / 60);
             const seconds = timeLeft % 60;
             
-            timerElement.textContent = `Waktu: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            let timeText;
+            if (hours > 0) {
+                timeText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            document.getElementById('timer').textContent = timeText;
+            
+            // Update progress circle color based on time remaining
+            const progressCircle = document.getElementById('progress-circle');
+            const percentage = (timeLeft / totalTime) * 100;
+            
+            if (percentage < 20) {
+                progressCircle.style.stroke = '#dc3545'; // Red for critical time
+            } else if (percentage < 40) {
+                progressCircle.style.stroke = '#ffc107'; // Yellow for warning
+            } else {
+                progressCircle.style.stroke = '#ff6b6b'; // Normal color
+            }
             
             if (timeLeft > 0) {
                 timeLeft--;
@@ -528,11 +668,71 @@ foreach ($soal as $item) {
             const progress = ((currentSubtestIndex + 1) / subtests.length) * 100;
             document.getElementById('progress-bar').style.width = `${progress}%`;
             document.getElementById('progress-current').textContent = `Subtest ${currentSubtestIndex + 1} dari ${subtests.length}`;
-            document.getElementById('progress-percentage').textContent = `${Math.round(progress)}% selesai`;
+            document.getElementById('progress-percentage-inline').textContent = `${Math.round(progress)}% selesai`;
+            document.getElementById('progress-percentage').textContent = `${Math.round(progress)}%`;
+            
+            // Update progress circle
+            const progressCircle = document.getElementById('progress-circle');
+            const radius = progressCircle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (progress / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+            
+            // Update floating subtest info
+            const currentSubtestElem = document.getElementById('current-subtest');
+            const subtestNameElem = document.getElementById('subtest-name');
+            
+            if (currentSubtestElem && subtestNameElem) {
+                currentSubtestElem.textContent = `Subtest ${currentSubtestIndex + 1}/${subtests.length}`;
+                
+                // Dapatkan nama subtest berdasarkan kode
+                const subtestNames = {
+                    'SE': 'Kosa Kata',
+                    'WA': 'Kemampuan Verbal', 
+                    'AN': 'Kemampuan Analitis',
+                    'GE': 'Kemampuan Generalisasi',
+                    'RA': 'Kemampuan Aritmatika',
+                    'ZR': 'Kemampuan Numerik'
+                };
+                
+                const currentSubtestCode = subtests[currentSubtestIndex];
+                subtestNameElem.textContent = subtestNames[currentSubtestCode] || currentSubtestCode;
+            }
         }
+        
+        // Hide/show floating elements saat scroll
+        let lastScrollTop = 0;
+        window.addEventListener('scroll', function() {
+            const floatingTimer = document.getElementById('floating-timer');
+            const floatingProgress = document.getElementById('floating-progress');
+            const floatingSubtest = document.getElementById('floating-subtest-info');
+            const st = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (st > lastScrollTop && st > 100) {
+                // Scroll down - hide floating elements
+                floatingTimer.style.transform = 'translateY(-10px)';
+                floatingProgress.style.transform = 'translateY(-10px)';
+                floatingSubtest.style.transform = 'translateY(25px)';
+            } else {
+                // Scroll up - show floating elements
+                floatingTimer.style.transform = 'translateY(0)';
+                floatingProgress.style.transform = 'translateY(0)';
+                floatingSubtest.style.transform = 'translateY(35px)';
+            }
+            
+            lastScrollTop = st <= 0 ? 0 : st;
+        }, false);
         
         // Event listener untuk opsi jawaban
         document.addEventListener('DOMContentLoaded', function() {
+            // Setup progress circle
+            const progressCircle = document.getElementById('progress-circle');
+            const radius = progressCircle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            
+            progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+            progressCircle.style.strokeDashoffset = circumference;
+            
             // Tambahkan event listener untuk semua opsi
             document.querySelectorAll('.option').forEach(option => {
                 option.addEventListener('click', function() {
@@ -555,6 +755,12 @@ foreach ($soal as $item) {
             
             // Inisialisasi progress
             updateProgress();
+            
+            // Focus ke input pertama
+            const firstInput = document.querySelector('input[type="radio"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
         });
     </script>
 </body>
