@@ -14,8 +14,6 @@ if (!$testId || !$testType) {
     exit();
 }
 
-
-
 // Ambil informasi hasil test
 $testQuery = $db->prepare("
     SELECT r.*, p.name as participant_name, p.email 
@@ -29,12 +27,19 @@ $testResults = null;
 if ($testQuery->execute([$testId, strtoupper($testType)])) {
     $testInfo = $testQuery->fetch(PDO::FETCH_ASSOC);
     if ($testInfo) {
+        // Decode JSON results
         $testResults = json_decode($testInfo['results'], true);
+        
+        // Jika decode gagal, coba tangani sebagai string JSON
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("JSON decode error: " . json_last_error_msg());
+            $testResults = $testInfo['results']; // Simpan sebagai string untuk debugging
+        }
     }
 }
 
 // Redirect jika hasil test tidak ditemukan
-if (!$testInfo || !$testResults) {
+if (!$testInfo) {
     header("Location: dashboard.php");
     exit();
 }
@@ -57,16 +62,21 @@ switch (strtoupper($testType)) {
         }
         break;
     case 'PAULI':
-        $testTitle = 'Pauli Test';
+        if (class_exists('PauliTest')) {
+            $testClass = new PauliTest();
+            $testTitle = 'Pauli Test';
+        }
         break;
     case 'IST':
-        $testTitle = 'IST Test';
+        if (class_exists('ISTTest')) {
+            $testClass = new ISTTest();
+            $testTitle = 'IST Test (Intelligenz Struktur Test)';
+        }
         break;
     default:
         $testTitle = 'Hasil Test';
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="id">
@@ -125,8 +135,8 @@ switch (strtoupper($testType)) {
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
         
-        /* Style khusus untuk hasil Kraepelin */
-        .kraepelin-stats {
+        /* Style untuk statistik test */
+        .test-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
@@ -134,7 +144,7 @@ switch (strtoupper($testType)) {
         }
         
         @media (max-width: 768px) {
-            .kraepelin-stats {
+            .test-stats {
                 grid-template-columns: 1fr;
             }
         }
@@ -147,11 +157,35 @@ switch (strtoupper($testType)) {
             border-left: 4px solid #4e54c8;
         }
         
+        .kraepelin-stat-card {
+            border-left: 4px solid #4e54c8;
+        }
+        
+        .pauli-stat-card {
+            border-left: 4px solid #28a745;
+        }
+        
+        .ist-stat-card {
+            border-left: 4px solid #ff6b6b;
+        }
+        
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
             color: #4e54c8;
             margin: 10px 0;
+        }
+        
+        .kraepelin-stat-value {
+            color: #4e54c8;
+        }
+        
+        .pauli-stat-value {
+            color: #28a745;
+        }
+        
+        .ist-stat-value {
+            color: #ff6b6b;
         }
         
         .stat-label {
@@ -195,6 +229,18 @@ switch (strtoupper($testType)) {
             font-weight: 600;
             position: sticky;
             top: 0;
+        }
+        
+        .kraepelin-answers-table th {
+            background-color: #4e54c8;
+        }
+        
+        .pauli-answers-table th {
+            background-color: #28a745;
+        }
+        
+        .ist-answers-table th {
+            background-color: #ff6b6b;
         }
         
         .answers-table tr:nth-child(even) {
@@ -262,6 +308,34 @@ switch (strtoupper($testType)) {
             background-color: #5a6268;
         }
         
+        .subtest-scores {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .subtest-scores h3 {
+            margin-top: 0;
+            color: #ff6b6b;
+        }
+        
+        .raw-data {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .raw-data pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
         @media print {
             .actions {
                 display: none;
@@ -293,28 +367,28 @@ switch (strtoupper($testType)) {
             <p><strong>Jenis Test:</strong> <?php echo htmlspecialchars($testTitle); ?></p>
         </div>
         
-        <?php if (strtoupper($testType) === 'KRAEPELIN' && isset($testResults)): ?>
+        <?php if (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
             
-            <div class="kraepelin-stats">
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
+            <div class="test-stats">
+                <div class="stat-card kraepelin-stat-card">
+                    <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Skor</div>
                 </div>
                 
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
+                <div class="stat-card kraepelin-stat-card">
+                    <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
                     <div class="stat-label">Jawaban Benar</div>
                 </div>
                 
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
+                <div class="stat-card kraepelin-stat-card">
+                    <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Soal</div>
                 </div>
                 
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
+                <div class="stat-card kraepelin-stat-card">
+                    <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
                     <div class="stat-label">Tingkat Akurasi</div>
                 </div>
             </div>
@@ -347,7 +421,7 @@ switch (strtoupper($testType)) {
                 <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
                 
                 <div class="answers-container">
-                    <table class="answers-table">
+                    <table class="answers-table kraepelin-answers-table">
                         <thead>
                             <tr>
                                 <th>Baris</th>
@@ -387,14 +461,272 @@ switch (strtoupper($testType)) {
             <?php endif; ?>
         </div>
         
+        <?php elseif (strtoupper($testType) === 'PAULI' && is_array($testResults)): ?>
+        <div class="test-results">
+            <h2>Hasil Pauli Test</h2>
+            
+            <div class="test-stats">
+                <div class="stat-card pauli-stat-card">
+                    <div class="stat-value pauli-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Skor</div>
+                </div>
+                
+                <div class="stat-card pauli-stat-card">
+                    <div class="stat-value pauli-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
+                    <div class="stat-label">Jawaban Benar</div>
+                </div>
+                
+                <div class="stat-card pauli-stat-card">
+                    <div class="stat-value pauli-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Soal</div>
+                </div>
+                
+                <div class="stat-card pauli-stat-card">
+                    <div class="stat-value pauli-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
+                    <div class="stat-label">Tingkat Akurasi</div>
+                </div>
+                
+                <?php if (isset($testResults['fluctuation'])): ?>
+                <div class="stat-card pauli-stat-card">
+                    <div class="stat-value pauli-stat-value"><?php echo number_format($testResults['fluctuation'], 2); ?></div>
+                    <div class="stat-label">Tingkat Fluktuasi</div>
+                </div>
+                <?php endif; ?>
+            </div>
+            
+            <div class="interpretation">
+                <h3>Interpretasi Hasil Pauli Test</h3>
+                <?php
+                if (isset($testResults['accuracy']) && isset($testResults['fluctuation'])) {
+                    $accuracy = $testResults['accuracy'];
+                    $fluctuation = $testResults['fluctuation'];
+                    
+                    if ($accuracy >= 90 && $fluctuation <= 1.0) {
+                        echo "<p><strong>Sangat Baik:</strong> Konsistensi kerja excellent dengan akurasi tinggi dan fluktuasi rendah.</p>";
+                    } elseif ($accuracy >= 80 && $fluctuation <= 1.5) {
+                        echo "<p><strong>Baik:</strong> Kemampuan kerja yang konsisten dengan akurasi baik.</p>";
+                    } elseif ($accuracy >= 70) {
+                        echo "<p><strong>Cukup:</strong> Akurasi cukup tetapi perlu meningkatkan konsistensi.</p>";
+                    } elseif ($accuracy >= 60) {
+                        echo "<p><strong>Perlu Perbaikan:</strong> Perlu meningkatkan baik akurasi maupun konsistensi kerja.</p>";
+                    } else {
+                        echo "<p><strong>Perlu Perhatian Khusus:</strong> Hasil menunjukkan perlu latihan intensif untuk meningkatkan ketelitian dan konsistensi.</p>";
+                    }
+                    
+                    echo "<p>Fluktuasi: " . number_format($fluctuation, 2) . " (semakin rendah semakin konsisten)</p>";
+                } else {
+                    echo "<p>Interpretasi hasil tidak tersedia.</p>";
+                }
+                ?>
+            </div>
+            
+            <?php if (isset($testResults['answers']) && is_array($testResults['answers']) && count($testResults['answers']) > 0): ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
+                
+                <div class="answers-container">
+                    <table class="answers-table pauli-answers-table">
+                        <thead>
+                            <tr>
+                                <th>Baris</th>
+                                <th>Kolom</th>
+                                <th>Jawaban Anda</th>
+                                <th>Status</th>
+                                <th>Skor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($testResults['answers'] as $answer): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
+                                <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
+                                <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
+                                    <?php echo htmlspecialchars($answer['jawaban']); ?>
+                                </td>
+                                <td>
+                                    <?php if ($answer['is_correct']): ?>
+                                    <span class="correct-answer">Benar</span>
+                                    <?php else: ?>
+                                    <span class="incorrect-answer">Salah</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo $answer['score']; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Data detail jawaban tidak tersedia.</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <?php elseif (strtoupper($testType) === 'IST' && is_array($testResults)): ?>
+        <div class="test-results">
+            <h2>Hasil IST Test (Intelligenz Struktur Test)</h2>
+            
+            <div class="test-stats">
+                <div class="stat-card ist-stat-card">
+                    <div class="stat-value ist-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Skor</div>
+                </div>
+                
+                <div class="stat-card ist-stat-card">
+                    <div class="stat-value ist-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
+                    <div class="stat-label">Jawaban Benar</div>
+                </div>
+                
+                <div class="stat-card ist-stat-card">
+                    <div class="stat-value ist-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
+                    <div class="stat-label">Total Soal</div>
+                </div>
+                
+                <div class="stat-card ist-stat-card">
+                    <div class="stat-value ist-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
+                    <div class="stat-label">Tingkat Akurasi</div>
+                </div>
+                
+                <?php if (isset($testResults['iq_score'])): ?>
+                <div class="stat-card ist-stat-card">
+                    <div class="stat-value ist-stat-value"><?php echo number_format($testResults['iq_score'], 1); ?></div>
+                    <div class="stat-label">Skor IQ</div>
+                </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Tampilkan skor per subtest jika ada -->
+            <?php if (isset($testResults['subtest_scores']) && is_array($testResults['subtest_scores'])): ?>
+            <div class="subtest-scores">
+                <h3>Skor per Subtest</h3>
+                <div class="test-stats">
+                    <?php foreach ($testResults['subtest_scores'] as $subtest => $score): 
+                        $subtestNames = [
+                            'SE' => 'Kosa Kata',
+                            'WA' => 'Kemampuan Verbal',
+                            'AN' => 'Kemampuan Analitis',
+                            'GE' => 'Kemampuan Generalisasi',
+                            'RA' => 'Kemampuan Aritmatika',
+                            'ZR' => 'Kemampuan Numerik'
+                        ];
+                        $subtestName = $subtestNames[$subtest] ?? $subtest;
+                    ?>
+                    <div class="stat-card ist-stat-card">
+                        <div class="stat-value ist-stat-value"><?php echo $score; ?></div>
+                        <div class="stat-label"><?php echo $subtestName; ?></div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <div class="interpretation">
+                <h3>Interpretasi Hasil IST Test</h3>
+                <?php
+                if (isset($testResults['iq_score'])) {
+                    $iq = $testResults['iq_score'];
+                    
+                    if ($iq >= 130) {
+                        echo "<p><strong>Sangat Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
+                    } elseif ($iq >= 120) {
+                        echo "<p><strong>Superior:</strong> Kemampuan intelektual di atas rata-rata.</p>";
+                    } elseif ($iq >= 110) {
+                        echo "<p><strong>Di Atas Rata-rata:</strong> Kemampuan intelektual sedikit di atas rata-rata.</p>";
+                    } elseif ($iq >= 90) {
+                        echo "<p><strong>Rata-rata:</strong> Kemampuan intelektual dalam kisaran normal.</p>";
+                    } elseif ($iq >= 80) {
+                        echo "<p><strong>Di Bawah Rata-rata:</strong> Kemampuan intelektual sedikit di bawah rata-rata.</p>";
+                    } else {
+                        echo "<p><strong>Perlu Perhatian Khusus:</strong> Kemampuan intelektual memerlukan evaluasi lebih lanjut.</p>";
+                    }
+                    
+                    echo "<p>Skor IQ: " . number_format($iq, 1) . "</p>";
+                } else {
+                    echo "<p>Interpretasi hasil tidak tersedia.</p>";
+                }
+                ?>
+            </div>
+            
+            <?php if (isset($testResults['answers']) && is_array($testResults['answers']) && count($testResults['answers']) > 0): ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
+                
+                <div class="answers-container">
+                    <table class="answers-table ist-answers-table">
+                        <thead>
+                            <tr>
+                                <th>Subtest</th>
+                                <th>Soal</th>
+                                <th>Jawaban Anda</th>
+                                <th>Jawaban Benar</th>
+                                <th>Status</th>
+                                <th>Skor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $subtestNames = [
+                                'SE' => 'Kosa Kata',
+                                'WA' => 'Kemampuan Verbal',
+                                'AN' => 'Kemampuan Analitis',
+                                'GE' => 'Kemampuan Generalisasi',
+                                'RA' => 'Kemampuan Aritmatika',
+                                'ZR' => 'Kemampuan Numerik'
+                            ];
+                            
+                            foreach ($testResults['answers'] as $answer): 
+                                $subtestName = $subtestNames[$answer['subtest']] ?? $answer['subtest'];
+                            ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($subtestName); ?></td>
+                                <td><?php echo htmlspecialchars($answer['question_number']); ?></td>
+                                <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
+                                    <?php echo htmlspecialchars($answer['user_answer']); ?>
+                                </td>
+                                <td><?php echo htmlspecialchars($answer['correct_answer']); ?></td>
+                                <td>
+                                    <?php if ($answer['is_correct']): ?>
+                                    <span class="correct-answer">Benar</span>
+                                    <?php else: ?>
+                                    <span class="incorrect-answer">Salah</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo $answer['score']; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Data detail jawaban tidak tersedia.</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
         <?php elseif (strtoupper($testType) === 'TIKI' && $testClass && isset($testResults['answers'])): ?>
         <!-- Tampilan hasil TIKI Test -->
+        <div class="test-results">
+            <h2>Hasil TIKI Test</h2>
+            <!-- Isi hasil TIKI Test -->
+        </div>
+        
         <?php else: ?>
         <div class="test-results">
             <h2>Hasil Test</h2>
             <p>Detail hasil test tidak tersedia atau format tidak dikenali.</p>
             <?php if (isset($testResults)): ?>
-            <pre><?php echo htmlspecialchars(json_encode($testResults, JSON_PRETTY_PRINT)); ?></pre>
+            <div class="raw-data">
+                <h4>Data Mentah:</h4>
+                <pre><?php echo htmlspecialchars(json_encode($testResults, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+            </div>
             <?php endif; ?>
         </div>
         <?php endif; ?>
