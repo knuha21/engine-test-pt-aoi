@@ -1,144 +1,255 @@
 <?php
-// Pastikan Database class sudah di-load
-if (!class_exists('Database')) {
-    require_once __DIR__ . '/Database.php';
-}
-
+/**
+ * Class ISTTest - Untuk menangani proses testing IST (Intelligenz Struktur Test)
+ */
 class ISTTest {
     private $db;
-    private $kunciJawaban = [];
     
     public function __construct() {
-        // Pastikan Database class tersedia
-        if (!class_exists('Database')) {
-            throw new Exception('Database class not found');
-        }
-        
-        $database = new Database();
-        $this->db = $database->getConnection();
-        $this->loadKunciJawaban();
+        $this->db = getDBConnection();
     }
     
-        private function loadKunciJawaban() {
-        try {
-            // Load kunci jawaban IST dari database
-            $query = "SELECT * FROM ist_answer_keys ORDER BY subtest, question_number";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute();
-            
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $this->kunciJawaban[$row['subtest']][$row['question_number']] = $row['correct_answer'];
-            }
-        } catch (PDOException $e) {
-            error_log("Error loading IST answer keys: " . $e->getMessage());
-        }
-    }
-    
-    public function prosesJawaban($jawabanPeserta) {
+    /**
+     * Memproses jawaban peserta dan menghitung skor
+     * @param array $jawaban Array jawaban dari peserta
+     * @return array Hasil olahan jawaban
+     */
+    public function prosesJawaban($jawaban) {
         $hasil = [];
+        $totalScore = 0;
+        $correctAnswers = 0;
+        $totalQuestions = 0;
         
-        foreach ($jawabanPeserta as $subtest => $jawaban) {
-            $rawScore = $this->hitungRawScore($subtest, $jawaban);
-            $weightedScore = $this->konversiKeWeightedScore($subtest, $rawScore);
-            $hasil[$subtest] = [
-                'raw_score' => $rawScore,
-                'weighted_score' => $weightedScore,
-                'interpretasi' => $this->getInterpretasi($subtest, $weightedScore)
-            ];
+        // Data norma IST (contoh data, bisa disesuaikan)
+        $istNorms = $this->getISTNorms();
+        
+        // Hitung jawaban benar dan salah
+        foreach ($jawaban as $subtest => $questions) {
+            $subtestScore = 0;
+            $subtestTotal = 0;
+            
+            foreach ($questions as $questionNumber => $userAnswer) {
+                $totalQuestions++;
+                $subtestTotal++;
+                
+                // Cek kunci jawaban
+                $key = $subtest . '_' . $questionNumber;
+                $isCorrect = false;
+                $score = 0;
+                
+                if (isset($istNorms[$key])) {
+                    $isCorrect = (strtoupper($userAnswer) == strtoupper($istNorms[$key]['correct_answer']));
+                    
+                    if ($isCorrect) {
+                        $correctAnswers++;
+                        $score = $istNorms[$key]['weighted_score'];
+                        $subtestScore += $score;
+                        $totalScore += $score;
+                    }
+                }
+                
+                $hasil['answers'][] = [
+                    'subtest' => $subtest,
+                    'question_number' => $questionNumber,
+                    'user_answer' => $userAnswer,
+                    'correct_answer' => $istNorms[$key]['correct_answer'] ?? 'N/A',
+                    'is_correct' => $isCorrect,
+                    'score' => $score,
+                    'weighted_score' => $score
+                ];
+            }
+            
+            // Simpan skor per subtest
+            $hasil['subtest_scores'][$subtest] = $subtestScore;
+            $hasil['subtest_totals'][$subtest] = $subtestTotal;
         }
         
-        // Tambahkan timestamp
-        $hasil['metadata'] = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'total_subtest' => count($jawabanPeserta)
-        ];
+        // Hitung skor total dan konversi
+        $hasil['total_score'] = $totalScore;
+        $hasil['total_questions'] = $totalQuestions;
+        $hasil['correct_answers'] = $correctAnswers;
+        $hasil['accuracy'] = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
+        
+        // Konversi skor ke IQ
+        $hasil['iq_score'] = $this->convertToIQ($totalScore);
+        $hasil['test_date'] = date('Y-m-d H:i:s');
         
         return $hasil;
     }
     
-    private function hitungRawScore($subtest, $jawaban) {
-        $score = 0;
-        if (isset($this->kunciJawaban[$subtest])) {
-            foreach ($jawaban as $noSoal => $jawab) {
-                if (isset($this->kunciJawaban[$subtest][$noSoal]) && 
-                    strtoupper(trim($jawab)) == strtoupper(trim($this->kunciJawaban[$subtest][$noSoal]))) {
-                    $score++;
+    /**
+     * Mengambil norma IST dari database
+     * @return array Data norma
+     */
+    private function getISTNorms() {
+        $norms = [];
+        
+        try {
+            // Coba ambil dari database
+            $query = $this->db->query("SELECT subtest, question_number, correct_answer, weighted_score FROM ist_norms");
+            if ($query) {
+                while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
+                    $key = $row['subtest'] . '_' . $row['question_number'];
+                    $norms[$key] = $row;
                 }
+                return $norms;
             }
-        }
-        return $score;
-    }
-    
-    private function konversiKeWeightedScore($subtest, $rawScore) {
-        // Implementasi konversi berdasarkan norma IST
-        // Untuk contoh, kita menggunakan faktor pengali sederhana
-        $faktor = [
-            'SE' => 2, 'WA' => 3, 'AN' => 2, 'GE' => 3, 
-            'RA' => 2, 'ZR' => 3, 'FA' => 2, 'WU' => 3, 'ME' => 2
-        ];
-        
-        if (isset($faktor[$subtest])) {
-            return $rawScore * $faktor[$subtest];
+        } catch (Exception $e) {
+            error_log("Error fetching IST norms: " . $e->getMessage());
         }
         
-        return $rawScore;
+        // Fallback ke data default jika tidak ada di database
+        return $this->getDefaultISTNorms();
     }
     
-    private function getInterpretasi($subtest, $weightedScore) {
-        // Interpretasi sederhana berdasarkan skor
-        if ($weightedScore >= 30) return "Sangat Baik";
-        if ($weightedScore >= 20) return "Baik";
-        if ($weightedScore >= 10) return "Cukup";
-        return "Perlu Improvement";
-    }
-    
-    public function generateGrafikIST($hasilOlahan) {
-        $dataGrafik = [];
-        foreach ($hasilOlahan as $subtest => $score) {
-            if (is_array($score) && isset($score['weighted_score'])) {
-                $dataGrafik[] = [
-                    'subtest' => $subtest,
-                    'weighted_score' => $score['weighted_score']
+    /**
+     * Data norma default untuk IST
+     * @return array Data norma default
+     */
+    private function getDefaultISTNorms() {
+        // Data contoh - harus diganti dengan data IST yang sebenarnya
+        $norms = [];
+        
+        $subtests = ['SE', 'WA', 'AN', 'GE', 'RA', 'ZR'];
+        
+        foreach ($subtests as $subtest) {
+            for ($i = 1; $i <= 20; $i++) {
+                $key = $subtest . '_' . $i;
+                $norms[$key] = [
+                    'correct_answer' => chr(rand(65, 69)), // A-E random
+                    'weighted_score' => rand(1, 3)
                 ];
             }
         }
-        return $dataGrafik;
+        
+        return $norms;
     }
     
-    public function simpanHasilTest($participant_id, $results) {
+    /**
+     * Mengkonversi skor total menjadi skor IQ
+     * @param float $totalScore Skor total
+     * @return float Skor IQ
+     */
+    private function convertToIQ($totalScore) {
+        // Formula konversi sederhana - harus disesuaikan dengan norma IST yang sebenarnya
+        return 100 + ($totalScore / 2);
+    }
+    
+    /**
+     * Menyimpan hasil test ke database
+     * @param int $participantId ID peserta
+     * @param array $hasilOlahan Hasil olahan jawaban
+     * @return bool Berhasil atau tidak
+     */
+    public function simpanHasilTest($participantId, $hasilOlahan) {
         try {
-            $query = "INSERT INTO test_results SET participant_id=:participant_id, test_type='IST', results=:results, created_at=NOW()";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(":participant_id", $participant_id);
-            $stmt->bindParam(":results", json_encode($results));
+            // Encode hasil menjadi JSON untuk disimpan
+            $resultsJson = json_encode($hasilOlahan);
             
-            return $stmt->execute();
-        } catch (PDOException $e) {
-            error_log("Error saving IST test results: " . $e->getMessage());
+            $query = $this->db->prepare("
+                INSERT INTO test_results (participant_id, test_type, results, created_at) 
+                VALUES (?, 'IST', ?, NOW())
+            ");
+            
+            return $query->execute([$participantId, $resultsJson]);
+        } catch (Exception $e) {
+            error_log("Error saving test results: " . $e->getMessage());
             return false;
         }
     }
     
-    // Method baru untuk mengambil hasil dari database
-    public function getHasilTest($participant_id, $test_id = null) {
+    /**
+     * Mengambil hasil test berdasarkan ID
+     * @param int $testId ID test
+     * @return array|null Data hasil test
+     */
+    public function getHasilTest($testId) {
         try {
-            if ($test_id) {
-                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND id = :test_id AND test_type = 'IST'";
-                $stmt = $this->db->prepare($query);
-                $stmt->bindParam(":participant_id", $participant_id);
-                $stmt->bindParam(":test_id", $test_id);
-            } else {
-                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND test_type = 'IST' ORDER BY created_at DESC";
-                $stmt = $this->db->prepare($query);
-                $stmt->bindParam(":participant_id", $participant_id);
-            }
+            $query = $this->db->prepare("
+                SELECT r.*, p.name as participant_name, p.email 
+                FROM test_results r 
+                JOIN participants p ON r.participant_id = p.id 
+                WHERE r.id = ?
+            ");
             
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error getting test results: " . $e->getMessage());
-            return [];
+            if ($query->execute([$testId])) {
+                $result = $query->fetch(PDO::FETCH_ASSOC);
+                if ($result) {
+                    $result['results'] = json_decode($result['results'], true);
+                    return $result;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching test results: " . $e->getMessage());
         }
+        
+        return null;
+    }
+    
+    /**
+     * Mengambil semua soal IST
+     * @return array Data soal
+     */
+    public function getAllSoal() {
+        $soal = [];
+        
+        try {
+            // Coba ambil dari database
+            $query = $this->db->query("
+                SELECT id, subtest, question_number, question_text, option_a, option_b, option_c, option_d, option_e 
+                FROM ist_questions 
+                ORDER BY subtest, question_number
+            ");
+            
+            if ($query) {
+                $soal = $query->fetchAll(PDO::FETCH_ASSOC);
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching IST questions: " . $e->getMessage());
+        }
+        
+        // Jika tidak ada soal di database, gunakan data default
+        if (empty($soal)) {
+            $soal = $this->getDefaultSoal();
+        }
+        
+        return $soal;
+    }
+    
+    /**
+     * Data soal default untuk IST
+     * @return array Data soal default
+     */
+    private function getDefaultSoal() {
+        $soal = [];
+        $subtests = [
+            'SE' => 'Kosa Kata',
+            'WA' => 'Kemampuan Verbal',
+            'AN' => 'Kemampuan Analitis',
+            'GE' => 'Kemampuan Generalisasi',
+            'RA' => 'Kemampuan Aritmatika',
+            'ZR' => 'Kemampuan Numerik'
+        ];
+        
+        $questionId = 1;
+        foreach ($subtests as $code => $name) {
+            for ($i = 1; $i <= 20; $i++) {
+                $soal[] = [
+                    'id' => $questionId++,
+                    'subtest' => $code,
+                    'subtest_name' => $name,
+                    'question_number' => $i,
+                    'question_text' => "Soal {$code} nomor {$i} - Pilih jawaban yang paling tepat",
+                    'option_a' => 'Pilihan A',
+                    'option_b' => 'Pilihan B',
+                    'option_c' => 'Pilihan C',
+                    'option_d' => 'Pilihan D',
+                    'option_e' => 'Pilihan E'
+                ];
+            }
+        }
+        
+        return $soal;
     }
 }
 ?>
