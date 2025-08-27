@@ -67,6 +67,7 @@ switch (strtoupper($testType)) {
 }
 ?>
 
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -75,13 +76,56 @@ switch (strtoupper($testType)) {
     <title>Hasil Test - PT. Apparel One Indonesia</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
-        /* ... CSS sebelumnya ... */
-
-        /* Style khusus untuk hasil Kraepelin */
-        .kraepelin-results {
-            margin-top: 20px;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .test-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .test-results {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Style khusus untuk hasil Kraepelin */
         .kraepelin-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -126,6 +170,111 @@ switch (strtoupper($testType)) {
         .interpretation h3 {
             color: #2196F3;
             margin-bottom: 10px;
+        }
+        
+        .answers-detail {
+            margin-top: 30px;
+        }
+        
+        .answers-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .answers-table th, .answers-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .answers-table th {
+            background-color: #4e54c8;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .answers-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .answers-table tr:hover {
+            background-color: #f1f3f5;
+        }
+        
+        .correct-answer {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .incorrect-answer {
+            color: #dc3545;
+        }
+        
+        .answers-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #4e54c8;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin: 0 10px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #3f44a7;
+            transform: translateY(-2px);
+        }
+        
+        .btn-print {
+            background-color: #17a2b8;
+        }
+        
+        .btn-print:hover {
+            background-color: #138496;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        @media print {
+            .actions {
+                display: none;
+            }
+            
+            .btn {
+                display: none;
+            }
+            
+            .answers-container {
+                max-height: none;
+                overflow: visible;
+            }
         }
     </style>
 </head>
@@ -192,50 +341,61 @@ switch (strtoupper($testType)) {
                 ?>
             </div>
             
-            <?php if (isset($testResults['answers']) && is_array($testResults['answers'])): ?>
+            <?php if (isset($testResults['answers']) && is_array($testResults['answers']) && count($testResults['answers']) > 0): ?>
             <div class="answers-detail">
                 <h3>Detail Jawaban</h3>
-                <table class="answers-table">
-                    <thead>
-                        <tr>
-                            <th>Baris</th>
-                            <th>Kolom</th>
-                            <th>Jawaban Anda</th>
-                            <th>Status</th>
-                            <th>Skor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($testResults['answers'] as $answer): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
-                            <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
-                            <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
-                                <?php echo htmlspecialchars($answer['jawaban']); ?>
-                            </td>
-                            <td>
-                                <?php if ($answer['is_correct']): ?>
-                                <span class="correct-answer">Benar</span>
-                                <?php else: ?>
-                                <span class="incorrect-answer">Salah</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo $answer['score']; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
+                
+                <div class="answers-container">
+                    <table class="answers-table">
+                        <thead>
+                            <tr>
+                                <th>Baris</th>
+                                <th>Kolom</th>
+                                <th>Jawaban Anda</th>
+                                <th>Status</th>
+                                <th>Skor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($testResults['answers'] as $answer): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
+                                <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
+                                <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
+                                    <?php echo htmlspecialchars($answer['jawaban']); ?>
+                                </td>
+                                <td>
+                                    <?php if ($answer['is_correct']): ?>
+                                    <span class="correct-answer">Benar</span>
+                                    <?php else: ?>
+                                    <span class="incorrect-answer">Salah</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo $answer['score']; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Data detail jawaban tidak tersedia.</p>
             </div>
             <?php endif; ?>
         </div>
         
         <?php elseif (strtoupper($testType) === 'TIKI' && $testClass && isset($testResults['answers'])): ?>
-        <!-- Tampilan hasil TIKI Test (tetap seperti sebelumnya) -->
+        <!-- Tampilan hasil TIKI Test -->
         <?php else: ?>
         <div class="test-results">
             <h2>Hasil Test</h2>
             <p>Detail hasil test tidak tersedia atau format tidak dikenali.</p>
+            <?php if (isset($testResults)): ?>
             <pre><?php echo htmlspecialchars(json_encode($testResults, JSON_PRETTY_PRINT)); ?></pre>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
         
