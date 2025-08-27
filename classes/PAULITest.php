@@ -1,117 +1,181 @@
 <?php
-// Pastikan Database class sudah di-load
-if (!class_exists('Database')) {
-    require_once __DIR__ . '/Database.php';
-}
-
-class PAULITest {
+/**
+ * Class PauliTest - Untuk menangani proses testing Pauli
+ */
+class PauliTest {
     private $db;
     
     public function __construct() {
-        // Pastikan Database class tersedia
-        if (!class_exists('Database')) {
-            throw new Exception('Database class not found');
-        }
-        
-        $database = new Database();
-        $this->db = $database->getConnection();
+        $this->db = getDBConnection();
     }
     
-    public function prosesLembarKerja($lembarKerja) {
+    /**
+     * Memproses jawaban peserta dan menghitung skor
+     * @param array $jawaban Array jawaban dari peserta
+     * @return array Hasil olahan jawaban
+     */
+    public function prosesJawaban($jawaban) {
         $hasil = [];
+        $totalScore = 0;
+        $correctAnswers = 0;
+        $totalQuestions = 0;
         
-        // Implementasi perhitungan tes Pauli
-        foreach ($lembarKerja as $bagian => $data) {
-            $hasil[$bagian] = $this->hitungSkorPauli($data);
+        // Hitung jawaban benar dan salah
+        foreach ($jawaban as $baris => $kolomJawaban) {
+            foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
+                $totalQuestions++;
+                
+                // Dalam test Pauli, kita perlu menghitung jawaban yang benar
+                // Untuk demo, kita asumsikan jawaban benar jika tidak kosong dan antara 0-9
+                $isCorrect = (!empty($jawabanPeserta) && is_numeric($jawabanPeserta) && 
+                             $jawabanPeserta >= 0 && $jawabanPeserta <= 9);
+                
+                if ($isCorrect) {
+                    $correctAnswers++;
+                    $score = 1;
+                } else {
+                    $score = 0;
+                }
+                
+                $hasil[] = [
+                    'baris' => $baris,
+                    'kolom' => $kolom,
+                    'jawaban' => $jawabanPeserta,
+                    'is_correct' => $isCorrect,
+                    'score' => $score
+                ];
+                
+                $totalScore += $score;
+            }
         }
         
-        return $hasil;
-    }
-    
-    private function hitungSkorPauli($data) {
-        // Logika khusus penilaian Pauli
-        $jumlah = array_sum($data);
-        $rata_rata = count($data) > 0 ? $jumlah / count($data) : 0;
+        // Hitung kecepatan dan ketelitian
+        $accuracy = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
+        
+        // Hitung fluktuasi (perbedaan antara jawaban benar tertinggi dan terendah per baris)
+        $fluctuation = $this->hitungFluktuasi($jawaban);
         
         return [
-            'jumlah' => $jumlah,
-            'rata_rata' => round($rata_rata, 2),
-            'fluktuasi' => $this->hitungFluktuasi($data)
+            'answers' => $hasil,
+            'total_score' => $totalScore,
+            'total_questions' => $totalQuestions,
+            'correct_answers' => $correctAnswers,
+            'accuracy' => $accuracy,
+            'fluctuation' => $fluctuation,
+            'test_date' => date('Y-m-d H:i:s')
         ];
     }
     
-    private function hitungFluktuasi($data) {
-        if (count($data) < 2) return 0;
+    /**
+     * Menghitung fluktuasi jawaban (konsistensi)
+     * @param array $jawaban Jawaban peserta
+     * @return float Tingkat fluktuasi
+     */
+    private function hitungFluktuasi($jawaban) {
+        $correctPerRow = [];
         
-        $fluktuasi = 0;
-        for ($i = 1; $i < count($data); $i++) {
-            $fluktuasi += abs($data[$i] - $data[$i-1]);
-        }
-        
-        return round($fluktuasi / (count($data) - 1), 2);
-    }
-    
-    public function getInterpretasi($totalScore, $averageScore, $fluctuation) {
-        try {
-            $query = "SELECT interpretation FROM pauli_norms WHERE 
-                     total_score <= :total_score AND
-                     average_score <= :average_score AND
-                     fluctuation >= :fluctuation
-                     ORDER BY total_score DESC, average_score DESC, fluctuation ASC
-                     LIMIT 1";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(":total_score", $totalScore);
-            $stmt->bindParam(":average_score", $averageScore);
-            $stmt->bindParam(":fluctuation", $fluctuation);
-            $stmt->execute();
-            
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                return $row['interpretation'];
+        // Hitung jawaban benar per baris
+        foreach ($jawaban as $baris => $kolomJawaban) {
+            $correctCount = 0;
+            foreach ($kolomJawaban as $jawabanPeserta) {
+                if (!empty($jawabanPeserta) && is_numeric($jawabanPeserta) && 
+                    $jawabanPeserta >= 0 && $jawabanPeserta <= 9) {
+                    $correctCount++;
+                }
             }
-            
-            return "Interpretasi tidak tersedia untuk hasil ini";
-        } catch (PDOException $e) {
-            error_log("Error getting interpretation: " . $e->getMessage());
-            return "Error dalam interpretasi hasil";
+            $correctPerRow[] = $correctCount;
         }
+        
+        // Hitung fluktuasi (standar deviasi)
+        if (count($correctPerRow) > 1) {
+            $mean = array_sum($correctPerRow) / count($correctPerRow);
+            $sumSquaredDiff = 0;
+            foreach ($correctPerRow as $value) {
+                $sumSquaredDiff += pow($value - $mean, 2);
+            }
+            return sqrt($sumSquaredDiff / count($correctPerRow));
+        }
+        
+        return 0;
     }
     
-    public function simpanHasilTest($participant_id, $results) {
+    /**
+     * Menyimpan hasil test ke database
+     * @param int $participantId ID peserta
+     * @param array $hasilOlahan Hasil olahan jawaban
+     * @return bool Berhasil atau tidak
+     */
+    public function simpanHasilTest($participantId, $hasilOlahan) {
         try {
-            $query = "INSERT INTO test_results SET participant_id=:participant_id, test_type='PAULI', results=:results, created_at=NOW()";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(":participant_id", $participant_id);
-            $stmt->bindParam(":results", json_encode($results));
+            // Encode hasil menjadi JSON untuk disimpan
+            $resultsJson = json_encode($hasilOlahan);
             
-            return $stmt->execute();
-        } catch (PDOException $e) {
-            error_log("Error saving PAULI test results: " . $e->getMessage());
+            $query = $this->db->prepare("
+                INSERT INTO test_results (participant_id, test_type, results, created_at) 
+                VALUES (?, 'PAULI', ?, NOW())
+            ");
+            
+            return $query->execute([$participantId, $resultsJson]);
+        } catch (Exception $e) {
+            error_log("Error saving test results: " . $e->getMessage());
             return false;
         }
     }
     
-    // Method baru untuk mengambil hasil dari database
-    public function getHasilTest($participant_id, $test_id = null) {
+    /**
+     * Mengambil hasil test berdasarkan ID
+     * @param int $testId ID test
+     * @return array|null Data hasil test
+     */
+    public function getHasilTest($testId) {
         try {
-            if ($test_id) {
-                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND id = :test_id AND test_type = 'PAULI'";
-                $stmt = $this->db->prepare($query);
-                $stmt->bindParam(":participant_id", $participant_id);
-                $stmt->bindParam(":test_id", $test_id);
-            } else {
-                $query = "SELECT * FROM test_results WHERE participant_id = :participant_id AND test_type = 'PAULI' ORDER BY created_at DESC";
-                $stmt = $this->db->prepare($query);
-                $stmt->bindParam(":participant_id", $participant_id);
-            }
+            $query = $this->db->prepare("
+                SELECT r.*, p.name as participant_name, p.email 
+                FROM test_results r 
+                JOIN participants p ON r.participant_id = p.id 
+                WHERE r.id = ?
+            ");
             
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error getting test results: " . $e->getMessage());
-            return [];
+            if ($query->execute([$testId])) {
+                $result = $query->fetch(PDO::FETCH_ASSOC);
+                if ($result) {
+                    $result['results'] = json_decode($result['results'], true);
+                    return $result;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching test results: " . $e->getMessage());
         }
+        
+        return null;
+    }
+    
+    /**
+     * Mengambil semua hasil test Pauli
+     * @return array Data hasil test
+     */
+    public function getAllHasilTest() {
+        try {
+            $query = $this->db->prepare("
+                SELECT r.*, p.name as participant_name, p.email 
+                FROM test_results r 
+                JOIN participants p ON r.participant_id = p.id 
+                WHERE r.test_type = 'PAULI'
+                ORDER BY r.created_at DESC
+            ");
+            
+            if ($query->execute()) {
+                $results = $query->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($results as &$result) {
+                    $result['results'] = json_decode($result['results'], true);
+                }
+                return $results;
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching all test results: " . $e->getMessage());
+        }
+        
+        return [];
     }
 }
 ?>
