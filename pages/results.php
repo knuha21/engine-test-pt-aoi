@@ -157,6 +157,10 @@ switch (strtoupper($testType)) {
             border-left: 4px solid #4e54c8;
         }
         
+        .tiki-stat-card {
+            border-left: 4px solid #6a11cb;
+        }
+        
         .kraepelin-stat-card {
             border-left: 4px solid #4e54c8;
         }
@@ -174,6 +178,10 @@ switch (strtoupper($testType)) {
             font-weight: bold;
             color: #4e54c8;
             margin: 10px 0;
+        }
+        
+        .tiki-stat-value {
+            color: #6a11cb;
         }
         
         .kraepelin-stat-value {
@@ -229,6 +237,10 @@ switch (strtoupper($testType)) {
             font-weight: 600;
             position: sticky;
             top: 0;
+        }
+        
+        .tiki-answers-table th {
+            background-color: #6a11cb;
         }
         
         .kraepelin-answers-table th {
@@ -336,6 +348,21 @@ switch (strtoupper($testType)) {
             overflow-y: auto;
         }
         
+        .grafik-container {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .grafik-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        
         @media print {
             .actions {
                 display: none;
@@ -367,7 +394,164 @@ switch (strtoupper($testType)) {
             <p><strong>Jenis Test:</strong> <?php echo htmlspecialchars($testTitle); ?></p>
         </div>
         
-        <?php if (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
+        <?php if (strtoupper($testType) === 'TIKI' && is_array($testResults)): ?>
+        <div class="test-results">
+            <h2>Hasil TIKI Test</h2>
+            
+            <div class="test-stats">
+                <?php if (isset($testResults['iq_score'])): ?>
+                <div class="stat-card tiki-stat-card">
+                    <div class="stat-value tiki-stat-value"><?php echo $testResults['iq_score']; ?></div>
+                    <div class="stat-label">Skor IQ</div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($testResults['total_score'])): ?>
+                <div class="stat-card tiki-stat-card">
+                    <div class="stat-value tiki-stat-value"><?php echo $testResults['total_score']; ?></div>
+                    <div class="stat-label">Total Skor</div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($testResults['correct_answers'])): ?>
+                <div class="stat-card tiki-stat-card">
+                    <div class="stat-value tiki-stat-value"><?php echo $testResults['correct_answers']; ?></div>
+                    <div class="stat-label">Jawaban Benar</div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($testResults['total_questions'])): ?>
+                <div class="stat-card tiki-stat-card">
+                    <div class="stat-value tiki-stat-value"><?php echo $testResults['total_questions']; ?></div>
+                    <div class="stat-label">Total Soal</div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($testResults['accuracy'])): ?>
+                <div class="stat-card tiki-stat-card">
+                    <div class="stat-value tiki-stat-value"><?php echo number_format($testResults['accuracy'], 1); ?>%</div>
+                    <div class="stat-label">Tingkat Akurasi</div>
+                </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Tampilkan grafik jika ada -->
+            <?php if (isset($testResults['grafik'])): ?>
+            <div class="grafik-container">
+                <h3>Grafik Hasil Test</h3>
+                <?php echo $testResults['grafik']; ?>
+            </div>
+            <?php endif; ?>
+            
+            <div class="interpretation">
+                <h3>Interpretasi Hasil TIKI Test</h3>
+                <?php
+                if (isset($testResults['iq_score'])) {
+                    $iq = $testResults['iq_score'];
+                    
+                    if ($iq >= 130) {
+                        echo "<p><strong>Sangat Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
+                    } elseif ($iq >= 120) {
+                        echo "<p><strong>Superior:</strong> Kemampuan intelektual di atas rata-rata.</p>";
+                    } elseif ($iq >= 110) {
+                        echo "<p><strong>Di Atas Rata-rata:</strong> Kemampuan intelektual sedikit di atas rata-rata.</p>";
+                    } elseif ($iq >= 90) {
+                        echo "<p><strong>Rata-rata:</strong> Kemampuan intelektual dalam kisaran normal.</p>";
+                    } elseif ($iq >= 80) {
+                        echo "<p><strong>Di Bawah Rata-rata:</strong> Kemampuan intelektual sedikit di bawah rata-rata.</p>";
+                    } else {
+                        echo "<p><strong>Perlu Perhatian Khusus:</strong> Kemampuan intelektual memerlukan evaluasi lebih lanjut.</p>";
+                    }
+                    
+                    echo "<p>Skor IQ: " . number_format($iq, 1) . "</p>";
+                } else {
+                    echo "<p>Interpretasi hasil tidak tersedia.</p>";
+                }
+                ?>
+            </div>
+            
+            <!-- Tampilkan skor per subtest jika ada -->
+            <?php if (isset($testResults['subtest_scores']) && is_array($testResults['subtest_scores'])): ?>
+            <div class="subtest-scores">
+                <h3>Skor per Subtest</h3>
+                <div class="test-stats">
+                    <?php foreach ($testResults['subtest_scores'] as $subtest => $score): 
+                        $subtestNames = [
+                            'Verbal' => 'Kemampuan Verbal',
+                            'Numerik' => 'Kemampuan Numerik',
+                            'Logika' => 'Kemampuan Logika',
+                            'Spasial' => 'Kemampuan Spasial'
+                        ];
+                        $subtestName = $subtestNames[$subtest] ?? $subtest;
+                    ?>
+                    <div class="stat-card tiki-stat-card">
+                        <div class="stat-value tiki-stat-value"><?php echo $score; ?></div>
+                        <div class="stat-label"><?php echo $subtestName; ?></div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <?php if (isset($testResults['answers']) && is_array($testResults['answers']) && count($testResults['answers']) > 0): ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
+                
+                <div class="answers-container">
+                    <table class="answers-table tiki-answers-table">
+                        <thead>
+                            <tr>
+                                <th>Subtest</th>
+                                <th>Soal</th>
+                                <th>Jawaban Anda</th>
+                                <th>Jawaban Benar</th>
+                                <th>Status</th>
+                                <th>Skor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $subtestNames = [
+                                'Verbal' => 'Kemampuan Verbal',
+                                'Numerik' => 'Kemampuan Numerik',
+                                'Logika' => 'Kemampuan Logika',
+                                'Spasial' => 'Kemampuan Spasial'
+                            ];
+                            
+                            foreach ($testResults['answers'] as $answer): 
+                                $subtestName = $subtestNames[$answer['subtest']] ?? $answer['subtest'];
+                            ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($subtestName); ?></td>
+                                <td><?php echo htmlspecialchars($answer['question_number']); ?></td>
+                                <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
+                                    <?php echo htmlspecialchars($answer['user_answer']); ?>
+                                </td>
+                                <td><?php echo htmlspecialchars($answer['correct_answer']); ?></td>
+                                <td>
+                                    <?php if ($answer['is_correct']): ?>
+                                    <span class="correct-answer">Benar</span>
+                                    <?php else: ?>
+                                    <span class 'incorrect-answer'>Salah</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo $answer['score']; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="answers-detail">
+                <h3>Detail Jawaban</h3>
+                <p>Data detail jawaban tidak tersedia.</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
             
@@ -709,13 +893,6 @@ switch (strtoupper($testType)) {
                 <p>Data detail jawaban tidak tersedia.</p>
             </div>
             <?php endif; ?>
-        </div>
-        
-        <?php elseif (strtoupper($testType) === 'TIKI' && $testClass && isset($testResults['answers'])): ?>
-        <!-- Tampilan hasil TIKI Test -->
-        <div class="test-results">
-            <h2>Hasil TIKI Test</h2>
-            <!-- Isi hasil TIKI Test -->
         </div>
         
         <?php else: ?>
