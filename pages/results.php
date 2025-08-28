@@ -201,6 +201,13 @@ switch (strtoupper($testType)) {
             color: #6c757d;
         }
         
+        .stat-percentile {
+            font-size: 0.8rem;
+            color: #28a745;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+        
         .interpretation {
             background-color: #e8f4fc;
             padding: 20px;
@@ -450,7 +457,7 @@ switch (strtoupper($testType)) {
                     $iq = $testResults['iq_score'];
                     
                     if ($iq >= 130) {
-                        echo "<p><strong>Sangat Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
+                        echo "<p><strong>Sangah Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
                     } elseif ($iq >= 120) {
                         echo "<p><strong>Superior:</strong> Kemampuan intelektual di atas rata-rata.</p>";
                     } elseif ($iq >= 110) {
@@ -533,7 +540,7 @@ switch (strtoupper($testType)) {
                                     <?php if ($answer['is_correct']): ?>
                                     <span class="correct-answer">Benar</span>
                                     <?php else: ?>
-                                    <span class 'incorrect-answer'>Salah</span>
+                                    <span class="incorrect-answer">Salah</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?php echo $answer['score']; ?></td>
@@ -774,34 +781,37 @@ switch (strtoupper($testType)) {
                     <div class="stat-value ist-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
                     <div class="stat-label">Tingkat Akurasi</div>
                 </div>
-                
-                <?php if (isset($testResults['iq_score'])): ?>
-                <div class="stat-card ist-stat-card">
-                    <div class="stat-value ist-stat-value"><?php echo number_format($testResults['iq_score'], 1); ?></div>
-                    <div class="stat-label">Skor IQ</div>
-                </div>
-                <?php endif; ?>
             </div>
             
             <!-- Tampilkan skor per subtest jika ada -->
             <?php if (isset($testResults['subtest_scores']) && is_array($testResults['subtest_scores'])): ?>
             <div class="subtest-scores">
-                <h3>Skor per Subtest</h3>
+                <h3>Profil Kemampuan Kognitif</h3>
+                <p>Berikut adalah hasil kemampuan kognitif Anda dalam berbagai bidang:</p>
+                
                 <div class="test-stats">
-                    <?php foreach ($testResults['subtest_scores'] as $subtest => $score): 
-                        $subtestNames = [
-                            'SE' => 'Kosa Kata',
-                            'WA' => 'Kemampuan Verbal',
-                            'AN' => 'Kemampuan Analitis',
-                            'GE' => 'Kemampuan Generalisasi',
-                            'RA' => 'Kemampuan Aritmatika',
-                            'ZR' => 'Kemampuan Numerik'
-                        ];
+                    <?php 
+                    $subtestNames = [
+                        'SE' => 'Kosa Kata (Wortschatztest)',
+                        'WA' => 'Kemampuan Verbal (Wortanalogien)',
+                        'AN' => 'Kemampuan Analitis (Figurenauswahl)',
+                        'GE' => 'Kemampuan Generalisasi (Rechenaufgaben)',
+                        'RA' => 'Kemampuan Aritmatika (Rechenaufgaben)',
+                        'ZR' => 'Kemampuan Numerik (Zahlenreihen)',
+                        'FA' => 'Kemampuan Figural (Figurenauswahl)',
+                        'WU' => 'Kemampuan Komprehensi (Würfelaufgaben)',
+                        'ME' => 'Kemampuan Memori (Merkfähigkeit)'
+                    ];
+                    
+                    foreach ($testResults['subtest_scores'] as $subtest => $score): 
                         $subtestName = $subtestNames[$subtest] ?? $subtest;
+                        // Konversi skor mentah ke persentil (contoh sederhana)
+                        $percentile = min(100, max(0, intval(($score / 20) * 100)));
                     ?>
                     <div class="stat-card ist-stat-card">
                         <div class="stat-value ist-stat-value"><?php echo $score; ?></div>
                         <div class="stat-label"><?php echo $subtestName; ?></div>
+                        <div class="stat-percentile">Persentil: <?php echo $percentile; ?>%</div>
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -811,24 +821,37 @@ switch (strtoupper($testType)) {
             <div class="interpretation">
                 <h3>Interpretasi Hasil IST Test</h3>
                 <?php
-                if (isset($testResults['iq_score'])) {
-                    $iq = $testResults['iq_score'];
+                if (isset($testResults['subtest_scores']) && is_array($testResults['subtest_scores'])) {
+                    echo "<p><strong>IST (Intelligenz Struktur Test)</strong> mengukur berbagai kemampuan kognitif yang relatif independen. Hasil ini menunjukkan profil kemampuan Anda dalam bidang-bidang spesifik:</p>";
                     
-                    if ($iq >= 130) {
-                        echo "<p><strong>Sangat Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
-                    } elseif ($iq >= 120) {
-                        echo "<p><strong>Superior:</strong> Kemampuan intelektual di atas rata-rata.</p>";
-                    } elseif ($iq >= 110) {
-                        echo "<p><strong>Di Atas Rata-rata:</strong> Kemampuan intelektual sedikit di atas rata-rata.</p>";
-                    } elseif ($iq >= 90) {
-                        echo "<p><strong>Rata-rata:</strong> Kemampuan intelektual dalam kisaran normal.</p>";
-                    } elseif ($iq >= 80) {
-                        echo "<p><strong>Di Bawah Rata-rata:</strong> Kemampuan intelektual sedikit di bawah rata-rata.</p>";
-                    } else {
-                        echo "<p><strong>Perlu Perhatian Khusus:</strong> Kemampuan intelektual memerlukan evaluasi lebih lanjut.</p>";
+                    // Analisis kekuatan dan kelemahan
+                    $scores = $testResults['subtest_scores'];
+                    if (count($scores) > 0) {
+                        $maxScore = max($scores);
+                        $minScore = min($scores);
+                        $strongAreas = array_keys($scores, $maxScore);
+                        $weakAreas = array_keys($scores, $minScore);
+                        
+                        if (count($strongAreas) > 0) {
+                            echo "<p><strong>Kekuatan Terbesar:</strong> ";
+                            $strongNames = [];
+                            foreach ($strongAreas as $area) {
+                                $strongNames[] = $subtestNames[$area] ?? $area;
+                            }
+                            echo implode(", ", $strongNames) . "</p>";
+                        }
+                        
+                        if (count($weakAreas) > 0 && $minScore < $maxScore) {
+                            echo "<p><strong>Area Perbaikan:</strong> ";
+                            $weakNames = [];
+                            foreach ($weakAreas as $area) {
+                                $weakNames[] = $subtestNames[$area] ?? $area;
+                            }
+                            echo implode(", ", $weakNames) . "</p>";
+                        }
+                        
+                        echo "<p>Setiap orang memiliki pola kemampuan kognitif yang unik. Hasil ini dapat membantu memahami kekuatan Anda dan area yang mungkin perlu dikembangkan lebih lanjut.</p>";
                     }
-                    
-                    echo "<p>Skor IQ: " . number_format($iq, 1) . "</p>";
                 } else {
                     echo "<p>Interpretasi hasil tidak tersedia.</p>";
                 }
@@ -856,11 +879,14 @@ switch (strtoupper($testType)) {
                             <?php 
                             $subtestNames = [
                                 'SE' => 'Kosa Kata',
-                                'WA' => 'Kemampuan Verbal',
+                                'WA' => 'Kemampuan Verbal', 
                                 'AN' => 'Kemampuan Analitis',
                                 'GE' => 'Kemampuan Generalisasi',
                                 'RA' => 'Kemampuan Aritmatika',
-                                'ZR' => 'Kemampuan Numerik'
+                                'ZR' => 'Kemampuan Numerik',
+                                'FA' => 'Kemampuan Figural',
+                                'WU' => 'Kemampuan Komprehensi',
+                                'ME' => 'Kemampuan Memori'
                             ];
                             
                             foreach ($testResults['answers'] as $answer): 
