@@ -835,14 +835,14 @@ foreach ($soal as $item) {
             
             if (st > lastScrollTop && st > 100) {
                 // Scroll down - hide floating elements
+                floatingTimer.style.transform = 'translateY(-10px)';
+                floatingProgress.style.transform = 'translateY(-10px)';
+                floatingSubtest.style.transform = 'translateY(20px)';
+            } else {
+                // Scroll up - show floating elements
                 floatingTimer.style.transform = 'translateY(5px)';
                 floatingProgress.style.transform = 'translateY(5px)';
                 floatingSubtest.style.transform = 'translateY(35px)';
-            } else {
-                // Scroll up - show floating elements
-                floatingTimer.style.transform = 'translateY(-5px)';
-                floatingProgress.style.transform = 'translateY(-5px)';
-                floatingSubtest.style.transform = 'translateY(25px)';
             }
             
             lastScrollTop = st <= 0 ? 0 : st;
