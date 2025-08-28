@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header("Location: results.php?test=ist");
             exit();
         } else {
-            $error = "Gagal menyimpan hasil test. Silakan coba lagi.";
+            $error = "Gagal menyimpan hasil test. Silakan coka lagi.";
         }
     } catch (Exception $e) {
         $error = "Error: " . $e->getMessage();
@@ -228,6 +228,12 @@ foreach ($soal as $item) {
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             background-color: #fff;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .subtest-header {
@@ -248,6 +254,12 @@ foreach ($soal as $item) {
             padding: 15px;
             background-color: #f8f9fa;
             border-radius: 6px;
+            border-left: 4px solid #ff6b6b;
+            transition: all 0.3s ease;
+        }
+        
+        .question:target {
+            background-color: #fff4f4;
             border-left: 4px solid #ff6b6b;
         }
         
@@ -293,6 +305,27 @@ foreach ($soal as $item) {
                 right: 10px;
                 padding: 10px;
                 min-width: 120px;
+            }
+            
+            .mobile-nav {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 15px;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+                z-index: 999;
+                justify-content: space-between;
+            }
+            
+            .desktop-nav {
+                display: none;
+            }
+            
+            .test-content {
+                padding-bottom: 80px;
             }
         }
         
@@ -413,21 +446,37 @@ foreach ($soal as $item) {
         }
         
         .subtest-nav-btn {
-            padding: 8px 15px;
+            padding: 10px 18px;
             background-color: #e9ecef;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
         
         .subtest-nav-btn:hover {
             background-color: #dee2e6;
+            transform: translateY(-2px);
         }
         
         .subtest-nav-btn.active {
             background-color: #ff6b6b;
             color: white;
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+        
+        .mobile-progress {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        /* Smooth scrolling for the whole page */
+        html {
+            scroll-behavior: smooth;
         }
     </style>
 </head>
@@ -516,7 +565,7 @@ foreach ($soal as $item) {
                     </div>
                     
                     <?php foreach ($subtest['questions'] as $question): ?>
-                    <div class="question">
+                    <div class="question" id="question-<?php echo $code; ?>-<?php echo $question['question_number']; ?>">
                         <div class="question-text">
                             <strong>Soal <?php echo $question['question_number']; ?>:</strong> 
                             <?php echo htmlspecialchars($question['question_text']); ?>
@@ -551,7 +600,7 @@ foreach ($soal as $item) {
                     </div>
                     <?php endforeach; ?>
                     
-                    <div class="navigation">
+                    <div class="navigation desktop-nav">
                         <button type="button" class="btn btn-prev" onclick="showPrevSubtest()" <?php echo $subtestIndex === 0 ? 'disabled' : ''; ?>>Subtest Sebelumnya</button>
                         
                         <?php if ($subtestIndex < count($subtests) - 1): ?>
@@ -573,6 +622,14 @@ foreach ($soal as $item) {
         let currentSubtestIndex = 0;
         let timeLeft = 60 * 60; // 60 menit dalam detik
         const totalTime = timeLeft;
+        
+        // Fungsi untuk scroll ke atas halaman dengan efek smooth
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
         
         // Timer untuk test IST
         function updateTimer() {
@@ -619,7 +676,8 @@ foreach ($soal as $item) {
             });
             
             // Tampilkan subtest yang dipilih
-            document.getElementById('subtest-' + subtestCode).style.display = 'block';
+            const targetSubtest = document.getElementById('subtest-' + subtestCode);
+            targetSubtest.style.display = 'block';
             
             // Update tombol navigasi
             updateSubtestNavButtons(subtestCode);
@@ -627,6 +685,27 @@ foreach ($soal as $item) {
             // Update progress
             currentSubtestIndex = subtests.indexOf(subtestCode);
             updateProgress();
+            
+            // Scroll ke atas halaman dengan efek smooth
+            scrollToTop();
+            
+            // Focus ke question pertama setelah delay kecil
+            setTimeout(() => {
+                const firstQuestion = targetSubtest.querySelector('.question');
+                if (firstQuestion) {
+                    // Tambahkan ID untuk question pertama
+                    firstQuestion.id = `first-question-${subtestCode}`;
+                    
+                    // Scroll ke question pertama
+                    firstQuestion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Focus ke input pertama
+                    const firstInput = firstQuestion.querySelector('input[type="radio"]');
+                    if (firstInput) {
+                        firstInput.focus();
+                    }
+                }
+            }, 300);
         }
         
         // Tampilkan subtest berikutnya
@@ -650,6 +729,16 @@ foreach ($soal as $item) {
             
             if (inputs.length < currentSubtest.querySelectorAll('.question').length) {
                 alert('Silakan jawab semua soal sebelum melanjutkan ke subtest berikutnya.');
+                
+                // Scroll ke question pertama yang belum dijawab
+                const questions = currentSubtest.querySelectorAll('.question');
+                for (let i = 0; i < questions.length; i++) {
+                    const questionInputs = questions[i].querySelectorAll('input[type="radio"]:checked');
+                    if (questionInputs.length === 0) {
+                        questions[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        break;
+                    }
+                }
                 return;
             }
             
@@ -661,6 +750,39 @@ foreach ($soal as $item) {
             document.querySelectorAll('.subtest-nav-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.subtest === activeSubtest);
             });
+        }
+        
+        // Update mobile navigation buttons
+        function updateMobileNavigation() {
+            const mobilePrevBtn = document.getElementById('mobile-prev-btn');
+            const mobileNextBtn = document.getElementById('mobile-next-btn');
+            const mobileProgress = document.getElementById('mobile-progress');
+            
+            if (mobilePrevBtn) {
+                mobilePrevBtn.disabled = currentSubtestIndex === 0;
+            }
+            
+            if (mobileNextBtn) {
+                if (currentSubtestIndex === subtests.length - 1) {
+                    mobileNextBtn.style.display = 'none';
+                    // Tambahkan tombol submit di mobile
+                    if (!document.getElementById('mobile-submit-btn')) {
+                        const submitBtn = document.createElement('button');
+                        submitBtn.id = 'mobile-submit-btn';
+                        submitBtn.className = 'btn btn-submit';
+                        submitBtn.textContent = 'Submit';
+                        submitBtn.onclick = function() { document.getElementById('ist-test-form').submit(); };
+                        mobileNextBtn.parentNode.replaceChild(submitBtn, mobileNextBtn);
+                    }
+                } else {
+                    mobileNextBtn.textContent = 'Berikutnya →';
+                    mobileNextBtn.style.display = 'block';
+                }
+            }
+            
+            if (mobileProgress) {
+                mobileProgress.textContent = `${currentSubtestIndex + 1}/${subtests.length}`;
+            }
         }
         
         // Update progress bar
@@ -698,6 +820,9 @@ foreach ($soal as $item) {
                 const currentSubtestCode = subtests[currentSubtestIndex];
                 subtestNameElem.textContent = subtestNames[currentSubtestCode] || currentSubtestCode;
             }
+            
+            // Update mobile navigation
+            updateMobileNavigation();
         }
         
         // Hide/show floating elements saat scroll
@@ -710,14 +835,14 @@ foreach ($soal as $item) {
             
             if (st > lastScrollTop && st > 100) {
                 // Scroll down - hide floating elements
-                floatingTimer.style.transform = 'translateY(-10px)';
-                floatingProgress.style.transform = 'translateY(-10px)';
-                floatingSubtest.style.transform = 'translateY(25px)';
+                floatingTimer.style.transform = 'translateY(5px)';
+                floatingProgress.style.transform = 'translateY(5px)';
+                floatingSubtest.style.transform = 'translateY(35px)';
             } else {
                 // Scroll up - show floating elements
-                floatingTimer.style.transform = 'translateY(0)';
-                floatingProgress.style.transform = 'translateY(0)';
-                floatingSubtest.style.transform = 'translateY(35px)';
+                floatingTimer.style.transform = 'translateY(-5px)';
+                floatingProgress.style.transform = 'translateY(-5px)';
+                floatingSubtest.style.transform = 'translateY(25px)';
             }
             
             lastScrollTop = st <= 0 ? 0 : st;
@@ -747,6 +872,14 @@ foreach ($soal as $item) {
                     
                     // Tambahkan selected ke opsi yang diklik
                     this.classList.add('selected');
+                });
+            });
+            
+            // Tambahkan event listener untuk tombol navigasi subtest
+            document.querySelectorAll('.subtest-nav-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Scroll ke atas setelah klik tombol navigasi
+                    setTimeout(scrollToTop, 100);
                 });
             });
             
