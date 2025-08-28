@@ -134,13 +134,98 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             margin-bottom: 5px;
         }
         
-        .timer-container {
-            background-color: #28a745;
+        /* Floating Timer untuk Pauli */
+        .floating-timer-pauli {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
             padding: 15px 20px;
-            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
             font-size: 1.2rem;
             font-weight: bold;
+            min-width: 120px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        /* Timer akan sedikit naik saat di-scroll */
+        .floating-timer-pauli.hidden {
+            transform: translateY(-100px);
+        }
+
+        /* Progress Circle untuk visualisasi waktu */
+        .progress-circle {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 10px;
+        }
+
+        .progress-circle svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .progress-circle-bg {
+            fill: none;
+            stroke: #e6e6e6;
+            stroke-width: 3.8;
+        }
+
+        .progress-circle-fg {
+            fill: none;
+            stroke: #28a745;
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+
+        .timer-text {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* Responsif untuk mobile */
+        @media (max-width: 768px) {
+            .floating-timer-pauli {
+                top: 10px;
+                right: 10px;
+                font-size: 1rem;
+                padding: 10px 15px;
+                min-width: 100px;
+            }
+            
+            .timer-text {
+                font-size: 1.1rem;
+            }
+            
+            .pauli-table {
+                font-size: 0.9rem;
+            }
+            
+            .pauli-table td {
+                padding: 6px;
+            }
+            
+            .answer-input {
+                width: 40px;
+                height: 40px;
+                font-size: 1.1rem;
+            }
+            
+            .number-cell {
+                font-size: 1.1rem;
+                width: 50px;
+            }
+            
+            .answer-cell {
+                width: 60px;
+            }
         }
         
         .test-content {
@@ -270,31 +355,6 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             font-weight: bold;
             width: 50px;
         }
-        
-        @media (max-width: 768px) {
-            .pauli-table {
-                font-size: 0.9rem;
-            }
-            
-            .pauli-table td {
-                padding: 6px;
-            }
-            
-            .answer-input {
-                width: 40px;
-                height: 40px;
-                font-size: 1.1rem;
-            }
-            
-            .number-cell {
-                font-size: 1.1rem;
-                width: 50px;
-            }
-            
-            .answer-cell {
-                width: 60px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -303,6 +363,18 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             <h1>Pauli Test</h1>
             <p class="subtitle">PT. Apparel One Indonesia</p>
         </header>
+        
+        <!-- Floating Timer -->
+        <div class="floating-timer-pauli" id="floating-timer">
+            <div class="progress-circle">
+                <svg viewBox="0 0 36 36">
+                    <circle class="progress-circle-bg" cx="18" cy="18" r="15.9"></circle>
+                    <circle class="progress-circle-fg" cx="18" cy="18" r="15.9" 
+                            stroke-dasharray="100, 100" id="progress-circle"></circle>
+                </svg>
+            </div>
+            <div class="timer-text" id="timer">15:00</div>
+        </div>
         
         <div class="test-info">
             <p><strong>Peserta:</strong> <?php echo htmlspecialchars($participant['name']); ?> | <strong>Email:</strong> <?php echo htmlspecialchars($participant['email']); ?></p>
@@ -325,10 +397,6 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             <?php echo $error; ?>
         </div>
         <?php endif; ?>
-        
-        <div class="timer-container">
-            <div id="timer">Waktu: 15:00</div>
-        </div>
         
         <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="pauli-test-form">
             <div class="test-content">
@@ -380,13 +448,36 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
     <script>
         // Timer untuk test Pauli (15 menit)
         let timeLeft = 15 * 60; // 15 menit dalam detik
+        const totalTime = timeLeft;
         const timerElement = document.getElementById('timer');
-        
+        const progressCircle = document.getElementById('progress-circle');
+
+        // Setup progress circle
+        const radius = progressCircle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+
+        progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+        progressCircle.style.strokeDashoffset = circumference;
+
         function updateTimer() {
             const minutes = Math.floor(timeLeft / 60);
             const seconds = timeLeft % 60;
             
-            timerElement.textContent = `Waktu: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update progress circle
+            const percentage = (timeLeft / totalTime) * 100;
+            const offset = circumference - (percentage / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+            
+            // Update progress circle color based on time remaining
+            if (percentage < 20) {
+                progressCircle.style.stroke = '#dc3545'; // Red for critical time
+            } else if (percentage < 40) {
+                progressCircle.style.stroke = '#ffc107'; // Yellow for warning
+            } else {
+                progressCircle.style.stroke = '#28a745'; // Normal color
+            }
             
             if (timeLeft > 0) {
                 timeLeft--;
@@ -520,6 +611,23 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             }
             return null;
         }
+        
+        // Hide/show floating timer saat scroll
+        let lastScrollTop = 0;
+        window.addEventListener('scroll', function() {
+            const floatingTimer = document.getElementById('floating-timer');
+            const st = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (st > lastScrollTop && st > 100) {
+                // Scroll down - hide timer
+                floatingTimer.classList.add('hidden');
+            } else {
+                // Scroll up - show timer
+                floatingTimer.classList.remove('hidden');
+            }
+            
+            lastScrollTop = st <= 0 ? 0 : st;
+        }, false);
         
         // Mencegah form submit dengan menekan Enter
         document.getElementById('pauli-test-form').addEventListener('keydown', function(e) {
