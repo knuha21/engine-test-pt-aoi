@@ -1,4 +1,5 @@
 <?php
+define('ROOT_ACCESS', true);
 require_once 'bootstrap.php';
 
 // Redirect jika sudah login
