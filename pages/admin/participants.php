@@ -1,4 +1,5 @@
 <?php
+
 require_once __DIR__ . '/../../bootstrap.php';
 
 // Pastikan hanya admin yang bisa akses
