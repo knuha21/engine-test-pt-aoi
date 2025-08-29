@@ -1,17 +1,71 @@
 <?php
-/**
- * Class KraepelinTest - Untuk menangani proses testing Kraepelin
- */
-class KraepelinTest {
+class KRAEPELINTest {
+    public $answers;
+    public $startTime;
+    public $endTime;
     private $db;
-    
-    public function __construct() {
+
+    function __construct($answers = null, $startTime = null, $endTime = null) {
+        $this->answers = $answers;
+        $this->startTime = $startTime;
+        $this->endTime = $endTime;
         $this->db = getDBConnection();
     }
-    
+
     /**
-     * Memproses jawaban peserta dan menghitung skor
-     * @param array $jawaban Array jawaban dari peserta
+     * Method untuk kompatibilitas dengan code yang sudah ada
+     */
+    function calculateResults() {
+        $total = count($this->answers);
+        $correct = 0;
+        $wrong = 0;
+        $sections = [];
+        foreach ($this->answers as $i => $ans) {
+            if ($ans['is_correct']) {
+                $correct++;
+            } else {
+                $wrong++;
+            }
+            $sectionIndex = floor($i / 10); // tiap 10 soal = 1 section
+            if (!isset($sections[$sectionIndex])) $sections[$sectionIndex] = 0;
+            $sections[$sectionIndex] += $ans['is_correct'] ? 1 : 0;
+        }
+
+        $duration = $this->endTime - $this->startTime;
+        $avgTime = $total > 0 ? $duration / $total : 0;
+
+        // Analisis pola kesalahan
+        $third = floor($total/3);
+        $early = array_slice($this->answers, 0, $third);
+        $middle = array_slice($this->answers, $third, $third);
+        $late = array_slice($this->answers, $third*2);
+
+        $countWrong = function($arr){return count(array_filter($arr, fn($a)=>!$a['is_correct']));};
+        $patternErrors = [
+            'awal' => $countWrong($early),
+            'tengah' => $countWrong($middle),
+            'akhir' => $countWrong($late)
+        ];
+
+        // Analisis kelelahan
+        $earlyScore = array_sum(array_column($early,'is_correct'));
+        $lateScore = array_sum(array_column($late,'is_correct'));
+        $fatigue = $lateScore < $earlyScore * 0.8;
+
+        return [
+            'total_benar' => $correct,
+            'total_salah' => $wrong,
+            'durasi_detik' => $duration,
+            'rata_waktu_per_soal' => $avgTime,
+            'pola_kesalahan' => $patternErrors,
+            'grafik_per_section' => array_values($sections),
+            'indikasi_kelelahan' => $fatigue
+        ];
+    }
+
+    /**
+     * Memproses jawaban peserta untuk test Kraepelin (method baru)
+     * @param array $jawaban Array jawaban dari form
      * @return array Hasil olahan jawaban
      */
     public function prosesJawaban($jawaban) {
@@ -20,13 +74,14 @@ class KraepelinTest {
         $correctAnswers = 0;
         $totalQuestions = 0;
         
-        // Hitung jawaban benar dan salah
+        // Simpan waktu mulai dan selesai
+        $startTime = time();
+        
         foreach ($jawaban as $baris => $kolomJawaban) {
             foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
                 $totalQuestions++;
                 
-                // Dalam test Kraepelin, kita perlu menghitung jawaban yang benar
-                // Untuk demo, kita asumsikan jawaban benar jika tidak kosong dan antara 0-9
+                // Validasi jawaban (0-9) - dalam Kraepelin, jawaban harus angka 0-9
                 $isCorrect = (!empty($jawabanPeserta) && is_numeric($jawabanPeserta) && 
                              $jawabanPeserta >= 0 && $jawabanPeserta <= 9);
                 
@@ -49,8 +104,51 @@ class KraepelinTest {
             }
         }
         
-        // Hitung kecepatan dan ketelitian
+        $endTime = time();
+        $duration = $endTime - $startTime;
         $accuracy = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
+        
+        // Hitung analisis tambahan seperti di calculateResults
+        $sections = [];
+        $patternErrors = [
+            'awal' => 0,
+            'tengah' => 0,
+            'akhir' => 0
+        ];
+        
+        $fatigue = false;
+        
+        if (count($hasil) > 0) {
+            // Analisis per section
+            foreach ($hasil as $i => $answer) {
+                $sectionIndex = floor($i / 10);
+                if (!isset($sections[$sectionIndex])) $sections[$sectionIndex] = 0;
+                $sections[$sectionIndex] += $answer['is_correct'] ? 1 : 0;
+            }
+            
+            // Analisis pola kesalahan
+            $third = floor(count($hasil)/3);
+            $early = array_slice($hasil, 0, $third);
+            $middle = array_slice($hasil, $third, $third);
+            $late = array_slice($hasil, $third*2);
+            
+            $countWrong = function($arr){
+                return count(array_filter($arr, function($a) { 
+                    return !$a['is_correct']; 
+                }));
+            };
+            
+            $patternErrors = [
+                'awal' => $countWrong($early),
+                'tengah' => $countWrong($middle),
+                'akhir' => $countWrong($late)
+            ];
+            
+            // Analisis kelelahan
+            $earlyScore = array_sum(array_column($early, 'is_correct'));
+            $lateScore = array_sum(array_column($late, 'is_correct'));
+            $fatigue = $lateScore < $earlyScore * 0.8;
+        }
         
         return [
             'answers' => $hasil,
@@ -58,6 +156,11 @@ class KraepelinTest {
             'total_questions' => $totalQuestions,
             'correct_answers' => $correctAnswers,
             'accuracy' => $accuracy,
+            'durasi_detik' => $duration,
+            'rata_waktu_per_soal' => $totalQuestions > 0 ? $duration / $totalQuestions : 0,
+            'pola_kesalahan' => $patternErrors,
+            'grafik_per_section' => array_values($sections),
+            'indikasi_kelelahan' => $fatigue,
             'test_date' => date('Y-m-d H:i:s')
         ];
     }
@@ -80,7 +183,7 @@ class KraepelinTest {
             
             return $query->execute([$participantId, $resultsJson]);
         } catch (Exception $e) {
-            error_log("Error saving test results: " . $e->getMessage());
+            error_log("Error saving Kraepelin test results: " . $e->getMessage());
             return false;
         }
     }
