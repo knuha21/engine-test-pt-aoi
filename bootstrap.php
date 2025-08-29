@@ -1,6 +1,9 @@
 <?php
 // bootstrap.php - File untuk memastikan semua dependency terload dengan benar
-
+// Define root access untuk file yang include bootstrap
+if (!defined('ROOT_ACCESS')) {
+    define('ROOT_ACCESS', true);
+}
 // Cek jika session belum dimulai
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
