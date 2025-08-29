@@ -1,4 +1,5 @@
 <?php
+define('ROOT_ACCESS', true);
 // Gunakan require_once untuk menghindari multiple includes
 require_once 'bootstrap.php';
 
