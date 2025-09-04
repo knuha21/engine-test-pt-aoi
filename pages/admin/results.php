@@ -1,11 +1,8 @@
 <?php
-
 require_once __DIR__ . '/../../bootstrap.php';
 
-// Pastikan hanya admin yang bisa akses
 requireAdmin();
 
-// Filter setup
 $testType = isset($_GET['test']) ? strtoupper(trim($_GET['test'])) : '';
 $participantId = isset($_GET['participant_id']) ? (int)$_GET['participant_id'] : 0;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -15,7 +12,6 @@ $offset = ($page - 1) * $limit;
 try {
     $db = getDBConnection();
     
-    // Build query dengan filters
     $where = [];
     $params = [];
     
@@ -31,7 +27,6 @@ try {
     
     $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
     
-    // Hitung total results
     $countQuery = "SELECT COUNT(*) as total FROM test_results tr $whereClause";
     $stmt = $db->prepare($countQuery);
     foreach ($params as $key => $value) {
@@ -41,7 +36,6 @@ try {
     $totalResults = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     $totalPages = ceil($totalResults / $limit);
     
-    // Ambil data results dengan join participant info
     $query = "SELECT tr.*, p.name as participant_name, p.email 
               FROM test_results tr 
               LEFT JOIN participants p ON tr.participant_id = p.id 
@@ -60,7 +54,13 @@ try {
     
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Ambil list participants untuk filter
+    foreach ($results as &$result) {
+        $resultData = json_decode($result['results'], true);
+        if (is_array($resultData)) {
+            $result['results_data'] = $resultData;
+        }
+    }
+    
     $participantsQuery = "SELECT id, name, email FROM participants ORDER BY name";
     $participantsStmt = $db->prepare($participantsQuery);
     $participantsStmt->execute();
@@ -100,7 +100,6 @@ try {
         <?php endif; ?>
         
         <div class="admin-section">
-            <!-- Filter Form -->
             <div class="filter-section">
                 <h2>Filter Hasil Test</h2>
                 <form method="GET" action="">
@@ -133,7 +132,6 @@ try {
                 </form>
             </div>
             
-            <!-- Results Table -->
             <div class="results-section">
                 <h2>Daftar Hasil Test (<?php echo $totalResults; ?>)</h2>
                 
@@ -143,10 +141,15 @@ try {
                         <th>ID Test</th>
                         <th>Peserta</th>
                         <th>Jenis Test</th>
+                        <th>Skor</th>
+                        <th>Akurasi</th>
+                        <th>Jawaban Benar</th>
                         <th>Tanggal Test</th>
                         <th>Aksi</th>
                     </tr>
-                    <?php foreach ($results as $result): ?>
+                    <?php foreach ($results as $result): 
+                        $testData = isset($result['results_data']) ? $result['results_data'] : [];
+                    ?>
                     <tr>
                         <td>#<?php echo $result['id']; ?></td>
                         <td>
@@ -154,6 +157,29 @@ try {
                             <small><?php echo htmlspecialchars($result['email']); ?></small>
                         </td>
                         <td><?php echo $result['test_type']; ?></td>
+                        <td>
+                            <?php if ($result['test_type'] === 'KRAEPELIN' && isset($testData['total_score'])): ?>
+                                <?php echo $testData['total_score']; ?> poin
+                            <?php elseif ($result['test_type'] === 'TIKI' && isset($testData['total_score'])): ?>
+                                <?php echo $testData['total_score']; ?> poin
+                            <?php else: ?>
+                                Completed
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (isset($testData['accuracy'])): ?>
+                                <?php echo number_format($testData['accuracy'], 1); ?>%
+                            <?php else: ?>
+                                N/A
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (isset($testData['correct_answers']) && isset($testData['total_questions'])): ?>
+                                <?php echo $testData['correct_answers']; ?>/<?php echo $testData['total_questions']; ?>
+                            <?php else: ?>
+                                N/A
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo date('d/m/Y H:i', strtotime($result['created_at'])); ?></td>
                         <td>
                             <a href="../results.php?test=<?php echo strtolower($result['test_type']); ?>&id=<?php echo $result['id']; ?>" 
@@ -166,7 +192,6 @@ try {
                     <?php endforeach; ?>
                 </table>
                 
-                <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <div class="pagination" style="margin-top: 20px; text-align: center;">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
