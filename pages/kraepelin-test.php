@@ -23,13 +23,13 @@ if (!$participant) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
         // Pastikan class KraepelinTest ada
-        if (!class_exists('KraepelinTest')) {
+        if (!class_exists('KRAEPELINTest')) {
             throw new Exception('KraepelinTest class not found');
         }
         
-        $kraepelinTest = new KraepelinTest();
+        $kraepelinTest = new KRAEPELINTest($deret);
         $jawaban = $_POST['answers'];
-        $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban, $deret);
+        $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban);
         
         // Simpan ke database
         if ($kraepelinTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
