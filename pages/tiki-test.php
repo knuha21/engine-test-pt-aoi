@@ -103,7 +103,7 @@ if (empty($soal)) {
         }
         
         header {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            background: linear-gradient(135deg, #ae69f8ff 0%, #3d82f8ff 100%);
             color: white;
             padding: 20px;
             text-align: center;
