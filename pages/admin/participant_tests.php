@@ -1,8 +1,6 @@
 <?php
-
 require_once __DIR__ . '/../../bootstrap.php';
 
-// Pastikan hanya admin yang bisa akses
 requireAdmin();
 
 $participantId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -15,7 +13,6 @@ if ($participantId === 0) {
 try {
     $db = getDBConnection();
     
-    // Ambil data participant
     $query = "SELECT * FROM participants WHERE id = :id";
     $stmt = $db->prepare($query);
     $stmt->bindParam(":id", $participantId);
@@ -28,13 +25,19 @@ try {
         exit();
     }
     
-    // Ambil riwayat test peserta
     $testsQuery = "SELECT * FROM test_results WHERE participant_id = :id ORDER BY created_at DESC";
     $testsStmt = $db->prepare($testsQuery);
     $testsStmt->bindParam(":id", $participantId);
     $testsStmt->execute();
     
     $testHistory = $testsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($testHistory as &$test) {
+        $testData = json_decode($test['results'], true);
+        if (is_array($testData)) {
+            $test['results_data'] = $testData;
+        }
+    }
     
 } catch (PDOException $e) {
     $error = "Error mengambil data peserta: " . $e->getMessage();
@@ -70,7 +73,6 @@ try {
         <?php endif; ?>
         
         <div class="admin-section">
-            <!-- Informasi Peserta -->
             <div class="results-section">
                 <h2>Informasi Peserta</h2>
                 <table class="results-table">
@@ -89,7 +91,6 @@ try {
                 </table>
             </div>
             
-            <!-- Riwayat Test -->
             <div class="results-section">
                 <h2>Riwayat Test yang Telah Dikerjakan</h2>
                 
@@ -98,14 +99,34 @@ try {
                     <tr>
                         <th>ID Test</th>
                         <th>Jenis Test</th>
+                        <th>Skor</th>
+                        <th>Akurasi</th>
                         <th>Tanggal Test</th>
                         <th>Waktu</th>
                         <th>Aksi</th>
                     </tr>
-                    <?php foreach ($testHistory as $test): ?>
+                    <?php foreach ($testHistory as $test): 
+                        $testData = isset($test['results_data']) ? $test['results_data'] : [];
+                    ?>
                     <tr>
                         <td>#<?php echo $test['id']; ?></td>
                         <td><?php echo $test['test_type']; ?></td>
+                        <td>
+                            <?php if ($test['test_type'] === 'KRAEPELIN' && isset($testData['total_score'])): ?>
+                                <?php echo $testData['total_score']; ?> poin
+                            <?php elseif ($test['test_type'] === 'TIKI' && isset($testData['total_score'])): ?>
+                                <?php echo $testData['total_score']; ?> poin
+                            <?php else: ?>
+                                Completed
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (isset($testData['accuracy'])): ?>
+                                <?php echo number_format($testData['accuracy'], 1); ?>%
+                            <?php else: ?>
+                                N/A
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo date('d/m/Y', strtotime($test['created_at'])); ?></td>
                         <td><?php echo date('H:i', strtotime($test['created_at'])); ?></td>
                         <td>
@@ -127,7 +148,6 @@ try {
                 <?php endif; ?>
             </div>
             
-            <!-- Informasi untuk Admin -->
             <div class="test-instructions">
                 <h2>Informasi untuk Admin</h2>
                 <p>Sebagai administrator, Anda dapat:</p>
