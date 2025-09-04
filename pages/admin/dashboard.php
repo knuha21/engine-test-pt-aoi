@@ -224,31 +224,44 @@ try {
             </div>
             
             <div class="results-section">
-                <h2>Test Terbaru</h2>
-                <?php if (count($stats['recent_tests']) > 0): ?>
-                <table class="results-table">
-                    <tr>
-                        <th>Jenis Test</th>
-                        <th>Peserta</th>
-                        <th>Tanggal Test</th>
-                        <th>Aksi</th>
-                    </tr>
-                    <?php foreach ($stats['recent_tests'] as $test): ?>
-                    <tr>
-                        <td><?php echo $test['test_type']; ?></td>
-                        <td><?php echo htmlspecialchars($test['name']); ?></td>
-                        <td><?php echo date('d/m/Y H:i', strtotime($test['created_at'])); ?></td>
-                        <td>
-                            <a href="../results.php?test=<?php echo strtolower($test['test_type']); ?>&id=<?php echo $test['id']; ?>" 
-                               class="btn-view" target="_blank">Lihat Hasil</a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </table>
-                <?php else: ?>
-                <p>Belum ada test yang dikerjakan.</p>
-                <?php endif; ?>
-            </div>
+            <h2>Test Terbaru</h2>
+            <?php if (count($stats['recent_tests']) > 0): ?>
+            <table class="results-table">
+                <tr>
+                    <th>Jenis Test</th>
+                    <th>Peserta</th>
+                    <th>Skor</th>
+                    <th>Tanggal Test</th>
+                    <th>Aksi</th>
+                </tr>
+                <?php foreach ($stats['recent_tests'] as $test): 
+                    $testData = json_decode($test['results'], true);
+                ?>
+                <tr>
+                    <td><?php echo $test['test_type']; ?></td>
+                    <td><?php echo htmlspecialchars($test['name']); ?></td>
+                    <td>
+                        <?php 
+                        if ($test['test_type'] === 'KRAEPELIN' && isset($testData['total_score'])) {
+                            echo $testData['total_score'] . ' poin';
+                        } elseif ($test['test_type'] === 'TIKI' && isset($testData['total_score'])) {
+                            echo $testData['total_score'] . ' poin';
+                        } else {
+                            echo 'Completed';
+                        }
+                        ?>
+                    </td>
+                    <td><?php echo date('d/m/Y H:i', strtotime($test['created_at'])); ?></td>
+                    <td>
+                        <a href="../results.php?test=<?php echo strtolower($test['test_type']); ?>&id=<?php echo $test['id']; ?>" 
+                           class="btn-view" target="_blank">Lihat Hasil</a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+            <?php else: ?>
+            <p>Belum ada test yang dikerjakan.</p>
+            <?php endif; ?>
         </div>
         
         <!-- Admin Information -->
