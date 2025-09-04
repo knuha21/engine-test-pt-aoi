@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $kraepelinTest = new KraepelinTest();
         $jawaban = $_POST['answers'];
-        $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban);
+        $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban, $deret);
         
         // Simpan ke database
         if ($kraepelinTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
