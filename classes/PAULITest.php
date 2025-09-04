@@ -4,17 +4,35 @@
  */
 class PauliTest {
     private $db;
+    private $deret;
     
     public function __construct() {
         $this->db = getDBConnection();
     }
     
     /**
-     * Memproses jawaban peserta dan menghitung skor
-     * @param array $jawaban Array jawaban dari peserta
-     * @return array Hasil olahan jawaban
+     * Validasi jawaban Pauli yang benar
      */
-    public function prosesJawaban($jawaban) {
+    private function validatePauliAnswer($baris, $kolom, $userAnswer, $deret) {
+        if (!isset($deret[$baris][$kolom]) || !isset($deret[$baris][$kolom + 1])) {
+            return false;
+        }
+        
+        $num1 = $deret[$baris][$kolom];
+        $num2 = $deret[$baris][$kolom + 1];
+        $correctSum = $num1 + $num2;
+        
+        // Untuk Pauli, hanya digit terakhir yang ditulis
+        $correctAnswer = $correctSum % 10;
+        
+        return ($userAnswer == $correctAnswer);
+    }
+    
+    /**
+     * Memproses jawaban peserta dan menghitung skor
+     */
+    public function prosesJawaban($jawaban, $deret) {
+        $this->deret = $deret;
         $hasil = [];
         $totalScore = 0;
         $correctAnswers = 0;
@@ -25,10 +43,8 @@ class PauliTest {
             foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
                 $totalQuestions++;
                 
-                // Dalam test Pauli, kita perlu menghitung jawaban yang benar
-                // Untuk demo, kita asumsikan jawaban benar jika tidak kosong dan antara 0-9
-                $isCorrect = (!empty($jawabanPeserta) && is_numeric($jawabanPeserta) && 
-                             $jawabanPeserta >= 0 && $jawabanPeserta <= 9);
+                // Validasi jawaban Pauli yang benar
+                $isCorrect = $this->validatePauliAnswer($baris, $kolom, $jawabanPeserta, $deret);
                 
                 if ($isCorrect) {
                     $correctAnswers++;
@@ -52,8 +68,11 @@ class PauliTest {
         // Hitung kecepatan dan ketelitian
         $accuracy = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
         
-        // Hitung fluktuasi (perbedaan antara jawaban benar tertinggi dan terendah per baris)
-        $fluctuation = $this->hitungFluktuasi($jawaban);
+        // Hitung fluktuasi (konsistensi)
+        $fluctuation = $this->hitungFluktuasi($jawaban, $deret);
+        
+        // Deteksi anomaly
+        $consistencyWarning = $fluctuation > 2.0 ? 'WARNING: Fluktuasi tinggi - konsistensi kurang' : null;
         
         return [
             'answers' => $hasil,
@@ -62,24 +81,22 @@ class PauliTest {
             'correct_answers' => $correctAnswers,
             'accuracy' => $accuracy,
             'fluctuation' => $fluctuation,
+            'consistency_warning' => $consistencyWarning,
             'test_date' => date('Y-m-d H:i:s')
         ];
     }
     
     /**
      * Menghitung fluktuasi jawaban (konsistensi)
-     * @param array $jawaban Jawaban peserta
-     * @return float Tingkat fluktuasi
      */
-    private function hitungFluktuasi($jawaban) {
+    private function hitungFluktuasi($jawaban, $deret) {
         $correctPerRow = [];
         
-        // Hitung jawaban benar per baris
+        // Hitung jawaban benar per baris dengan validasi
         foreach ($jawaban as $baris => $kolomJawaban) {
             $correctCount = 0;
-            foreach ($kolomJawaban as $jawabanPeserta) {
-                if (!empty($jawabanPeserta) && is_numeric($jawabanPeserta) && 
-                    $jawabanPeserta >= 0 && $jawabanPeserta <= 9) {
+            foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
+                if ($this->validatePauliAnswer($baris, $kolom, $jawabanPeserta, $deret)) {
                     $correctCount++;
                 }
             }
@@ -101,13 +118,9 @@ class PauliTest {
     
     /**
      * Menyimpan hasil test ke database
-     * @param int $participantId ID peserta
-     * @param array $hasilOlahan Hasil olahan jawaban
-     * @return bool Berhasil atau tidak
      */
     public function simpanHasilTest($participantId, $hasilOlahan) {
         try {
-            // Encode hasil menjadi JSON untuk disimpan
             $resultsJson = json_encode($hasilOlahan);
             
             $query = $this->db->prepare("
@@ -170,7 +183,7 @@ class PauliTest {
                     $result['results'] = json_decode($result['results'], true);
                 }
                 return $results;
-            }
+                }
         } catch (Exception $e) {
             error_log("Error fetching all test results: " . $e->getMessage());
         }
