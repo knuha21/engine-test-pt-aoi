@@ -2,7 +2,7 @@
 /**
  * Class PauliTest - Untuk menangani proses testing Pauli
  */
-class PauliTest {
+class PAULITest {
     private $db;
     private $deret;
     
