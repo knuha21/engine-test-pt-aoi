@@ -562,29 +562,50 @@ switch (strtoupper($testType)) {
         <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
-            
+                
+            <!-- Tambahkan tampilan deret jika ada -->
+            <?php if (isset($testResults['deret'])): ?>
+            <div class="test-instructions">
+                <h3>Deret Angka yang Digunakan</h3>
+                <div style="overflow-x: auto;">
+                    <table class="results-table" style="font-family: monospace;">
+                        <?php for ($i = 0; $i < count($testResults['deret']); $i++): ?>
+                        <tr>
+                            <td style="font-weight: bold; background-color: #f2f2f2;">Baris <?php echo $i + 1; ?></td>
+                            <?php for ($j = 0; $j < count($testResults['deret'][$i]); $j++): ?>
+                            <td style="text-align: center; border: 1px solid #ddd; padding: 5px;">
+                                <?php echo $testResults['deret'][$i][$j]; ?>
+                            </td>
+                            <?php endfor; ?>
+                        </tr>
+                        <?php endfor; ?>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+                            
             <div class="test-stats">
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Skor</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
                     <div class="stat-label">Jawaban Benar</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Soal</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
                     <div class="stat-label">Tingkat Akurasi</div>
                 </div>
             </div>
-            
+                            
             <div class="interpretation">
                 <h3>Interpretasi Hasil</h3>
                 <?php
@@ -611,7 +632,7 @@ switch (strtoupper($testType)) {
             <div class="answers-detail">
                 <h3>Detail Jawaban</h3>
                 <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
-                
+
                 <div class="answers-container">
                     <table class="answers-table kraepelin-answers-table">
                         <thead>
