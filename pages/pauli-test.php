@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $pauliTest = new PauliTest();
         $jawaban = $_POST['answers'];
-        $hasilOlahan = $pauliTest->prosesJawaban($jawaban);
+        $hasilOlahan = $pauliTest->prosesJawaban($jawaban, $deret);
         
         // Simpan ke database
         if ($pauliTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
