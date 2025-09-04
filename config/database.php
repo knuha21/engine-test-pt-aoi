@@ -95,12 +95,6 @@ if (!defined('ASSETS_URL')) {
 }
 
 /**
- * Membuat koneksi database menggunakan PDO
- * 
- * @return PDO|null Objek PDO atau null jika gagal
- */
-
-/**
  * Membuat folder yang diperlukan jika belum ada
  */
 function createRequiredDirectories() {
@@ -122,8 +116,125 @@ function createRequiredDirectories() {
     }
 }
 
+/**
+ * Membuat tabel yang diperlukan jika belum ada
+ */
+function createRequiredTables() {
+    try {
+        // Gunakan fungsi getDBConnection() dari bootstrap.php
+        if (!function_exists('getDBConnection')) {
+            error_log("Cannot create tables: getDBConnection function not found");
+            return false;
+        }
+        
+        $db = getDBConnection();
+        
+        if (!$db) {
+            error_log("Cannot create tables: Database connection failed");
+            return false;
+        }
+        
+        // Buat tabel participants jika belum ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS participants (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                role ENUM('admin', 'peserta') DEFAULT 'peserta',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // Buat tabel test_results jika belum ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS test_results (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                participant_id INT(11) NOT NULL,
+                test_type ENUM('TIKI', 'KRAEPELIN', 'PAULI', 'IST') NOT NULL,
+                results TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+                INDEX idx_participant_id (participant_id),
+                INDEX idx_test_type (test_type),
+                INDEX idx_created_at (created_at)
+            )
+        ");
+        
+        // Buat tabel tiki_norms jika belum ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS tiki_norms (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                subtest VARCHAR(10) NOT NULL,
+                question_number INT(11) NOT NULL,
+                correct_answer VARCHAR(1) NOT NULL,
+                raw_score INT(11) NOT NULL,
+                weighted_score DECIMAL(5,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_norm (subtest, question_number)
+            )
+        ");
+        
+        // Buat tabel kraepelin_norms jika belum ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS kraepelin_norms (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                subtest VARCHAR(10) NOT NULL,
+                question_number INT(11) NOT NULL,
+                correct_answer VARCHAR(1) NOT NULL,
+                weighted_score DECIMAL(5,2) NOT NULL,
+                interpretation TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_norm (subtest, question_number)
+            )
+        ");
+        
+        // Buat tabel tiki_questions jika belum ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS tiki_questions (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                subtest VARCHAR(10) NOT NULL,
+                question_number INT(11) NOT NULL,
+                question_text TEXT NOT NULL,
+                option_a VARCHAR(255) NOT NULL,
+                option_b VARCHAR(255) NOT NULL,
+                option_c VARCHAR(255) NOT NULL,
+                option_d VARCHAR(255) NOT NULL,
+                option_e VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_question (subtest, question_number)
+            )
+        ");
+        
+        // Insert admin user jika belum ada
+        $checkAdmin = $db->query("SELECT id FROM participants WHERE email = 'admin@test.com'");
+        if ($checkAdmin->rowCount() === 0) {
+            $hashedPassword = sha1('admin123');
+            $db->exec("
+                INSERT INTO participants (name, email, password, role) 
+                VALUES ('Administrator', 'admin@test.com', '$hashedPassword', 'admin')
+            ");
+            error_log("Admin user created successfully");
+        }
+        
+        error_log("Database tables checked/created successfully");
+        return true;
+        
+    } catch (PDOException $e) {
+        error_log("Error creating tables: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            echo "Error creating tables: " . $e->getMessage();
+        }
+        return false;
+    }
+}
+
 // Membuat direktori yang diperlukan
 createRequiredDirectories();
+
+// Membuat tabel yang diperlukan
+createRequiredTables();
 
 // Debug info
 if (DEBUG_MODE) {
@@ -134,7 +245,7 @@ if (DEBUG_MODE) {
 
 // Autoload classes
 spl_autoload_register(function ($class_name) {
-    $class_file = CLASS_PATH . $class_name . '.class.php';
+    $class_file = CLASS_PATH . $class_name . '.php';
     
     if (file_exists($class_file)) {
         require_once $class_file;
@@ -146,5 +257,13 @@ spl_autoload_register(function ($class_name) {
         error_log("Class file not found: " . $class_file);
     }
 });
+
+// Handle session start
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Set default timezone
+date_default_timezone_set('Asia/Jakarta');
 
 ?>
