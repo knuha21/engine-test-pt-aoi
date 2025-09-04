@@ -4,12 +4,11 @@
 if (!defined('ROOT_ACCESS')) {
     define('ROOT_ACCESS', true);
 }
-// Cek jika session belum dimulai
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Include autoloader
 require_once __DIR__ . '/autoload.php';
 
 // Function untuk memuat class dengan aman
