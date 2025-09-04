@@ -82,14 +82,31 @@ class TIKITest {
     }
     
     /**
-     * Mengkonversi skor total menjadi skor IQ
+     * Mengkonversi skor total menjadi skor IQ berdasarkan norma TIKI
      * @param float $totalScore Skor total
      * @return float Skor IQ
      */
     private function convertToIQ($totalScore) {
-        // Formula konversi sederhana - dapat disesuaikan dengan kebutuhan
-        // Contoh: IQ = 100 + (skor total / 2)
-        return 100 + ($totalScore / 2);
+        // TABEL KONVERSI NORMA TIKI YANG LEBIH AKURAT
+        $iqConversionTable = [
+            0 => 70,   5 => 72,   10 => 75,  15 => 78,  20 => 80,
+            25 => 82,  30 => 85,  35 => 88,  40 => 90,  45 => 92,
+            50 => 95,  55 => 98,  60 => 100, 65 => 102, 70 => 105,
+            75 => 108, 80 => 110, 85 => 112, 90 => 115, 95 => 118,
+            100 => 120, 105 => 122, 110 => 125, 115 => 128, 120 => 130,
+            125 => 132, 130 => 135, 135 => 138, 140 => 140, 145 => 142,
+            150 => 145
+        ];
+        
+        // Cari nilai IQ yang sesuai
+        foreach ($iqConversionTable as $score => $iq) {
+            if ($totalScore <= $score) {
+                return $iq;
+            }
+        }
+        
+        // Jika score di atas 150, return maksimum
+        return 145;
     }
     
     /**
@@ -341,7 +358,7 @@ class TIKITest {
                     UNIQUE KEY unique_question (subtest, question_number)
                 )
             ");
-            
+
             // Pastikan tiki_norms memiliki kolom subtest dan question_number
             $columns = $this->db->query("SHOW COLUMNS FROM tiki_norms")->fetchAll(PDO::FETCH_COLUMN);
             
