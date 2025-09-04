@@ -6,69 +6,9 @@ class KRAEPELINTest {
     private $db;
     private $deret;
 
-    function __construct($answers = null, $startTime = null, $endTime = null, $deret = null) {
-        $this->answers = $answers;
-        $this->startTime = $startTime;
-        $this->endTime = $endTime;
+    function __construct($deret = null) {
         $this->deret = $deret;
         $this->db = getDBConnection();
-    }
-
-    /**
-     * Method untuk kompatibilitas dengan code yang sudah ada
-     */
-    function calculateResults() {
-        $total = count($this->answers);
-        $correct = 0;
-        $wrong = 0;
-        $sections = [];
-        
-        foreach ($this->answers as $i => $ans) {
-            if ($ans['is_correct']) {
-                $correct++;
-            } else {
-                $wrong++;
-            }
-            $sectionIndex = floor($i / 10);
-            if (!isset($sections[$sectionIndex])) $sections[$sectionIndex] = 0;
-            $sections[$sectionIndex] += $ans['is_correct'] ? 1 : 0;
-        }
-
-        $duration = $this->endTime - $this->startTime;
-        $avgTime = $total > 0 ? $duration / $total : 0;
-
-        // Analisis pola kesalahan
-        $third = floor($total/3);
-        $early = array_slice($this->answers, 0, $third);
-        $middle = array_slice($this->answers, $third, $third);
-        $late = array_slice($this->answers, $third*2);
-
-        $countWrong = function($arr){
-            return count(array_filter($arr, function($a) { 
-                return !$a['is_correct']; 
-            }));
-        };
-        
-        $patternErrors = [
-            'awal' => $countWrong($early),
-            'tengah' => $countWrong($middle),
-            'akhir' => $countWrong($late)
-        ];
-
-        // Analisis kelelahan
-        $earlyScore = array_sum(array_column($early,'is_correct'));
-        $lateScore = array_sum(array_column($late,'is_correct'));
-        $fatigue = $lateScore < $earlyScore * 0.8;
-
-        return [
-            'total_benar' => $correct,
-            'total_salah' => $wrong,
-            'durasi_detik' => $duration,
-            'rata_waktu_per_soal' => $avgTime,
-            'pola_kesalahan' => $patternErrors,
-            'grafik_per_section' => array_values($sections),
-            'indikasi_kelelahan' => $fatigue
-        ];
     }
 
     /**
@@ -92,8 +32,7 @@ class KRAEPELINTest {
     /**
      * Memproses jawaban peserta untuk test Kraepelin
      */
-    public function prosesJawaban($jawaban, $deret) {
-        $this->deret = $deret;
+    public function prosesJawaban($jawaban) {
         $hasil = [];
         $totalScore = 0;
         $correctAnswers = 0;
@@ -183,7 +122,8 @@ class KRAEPELINTest {
             'grafik_per_section' => array_values($sections),
             'indikasi_kelelahan' => $fatigue,
             'time_anomaly' => $timeAnomaly,
-            'test_date' => date('Y-m-d H:i:s')
+            'test_date' => date('Y-m-d H:i:s'),
+            'deret' => $this->deret // Simpan deret untuk referensi
         ];
     }
     
