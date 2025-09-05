@@ -1,19 +1,14 @@
 <?php
-
-// Gunakan require_once untuk menghindari multiple includes
 require_once __DIR__ . '/../bootstrap.php';
 
-// Pastikan user sudah login
 requireLogin();
 
-// Ambil data peserta dari database
 $db = getDBConnection();
 $participant_id = $_SESSION['participant_id'];
 $participant_query = $db->prepare("SELECT name, email FROM participants WHERE id = ?");
 $participant_query->execute([$participant_id]);
 $participant = $participant_query->fetch(PDO::FETCH_ASSOC);
 
-// Jika tidak ada data peserta, redirect ke login
 if (!$participant) {
     header("Location: login.php");
     exit();
@@ -29,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $kraepelinTest = new KRAEPELINTest($deret);
         $jawaban = $_POST['answers'];
+        
+        // Debug: Log input jawaban
+        error_log("Raw answers from POST: " . json_encode($jawaban));
+        
         $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban);
         
         // Simpan ke database
@@ -41,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     } catch (Exception $e) {
         $error = "Error: " . $e->getMessage();
+        error_log("Error in kraepelin-test.php: " . $e->getMessage());
     }
 }
 
