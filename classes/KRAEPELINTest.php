@@ -6,15 +6,27 @@ class KRAEPELINTest {
     function __construct($deret = null) {
         $this->deret = $deret;
         $this->db = getDBConnection();
+        
+        // Debug: Log constructor
+        error_log("KRAEPELINTest Constructor - Deret: " . json_encode($deret));
     }
 
     /**
-     * Validasi jawaban Kraepelin yang benar - DIPERBAIKI
+     * Validasi jawaban Kraepelin yang benar - DIPERBAIKI LAGI
      */
     private function validateKraepelinAnswer($baris, $kolom, $userAnswer) {
+        error_log("Validating - Baris: $baris, Kolom: $kolom, Answer: $userAnswer");
+        
+        // Pastikan deret ada
+        if (!is_array($this->deret) || !isset($this->deret[$baris])) {
+            error_log("ERROR: Deret tidak valid atau baris $baris tidak ada");
+            return false;
+        }
+        
         // Pastikan kolom yang dijumlahkan ada dalam deret
         if (!isset($this->deret[$baris][$kolom]) || !isset($this->deret[$baris][$kolom + 1])) {
-            error_log("Error: Invalid column index - Baris: $baris, Kolom: $kolom");
+            error_log("ERROR: Kolom tidak valid - Baris: $baris, Kolom: $kolom");
+            error_log("Deret available: " . json_encode($this->deret[$baris]));
             return false;
         }
         
@@ -26,14 +38,22 @@ class KRAEPELINTest {
         $correctAnswer = $correctSum % 10;
         
         // Konversi userAnswer ke integer untuk perbandingan
-        $userAnswer = (int)$userAnswer;
+        $userAnswer = trim($userAnswer);
+        if ($userAnswer === '') {
+            error_log("ERROR: Jawaban kosong");
+            return false;
+        }
+        
+        $userAnswerInt = (int)$userAnswer;
         
         // Debug info
-        error_log("KRAEPELIN - Baris $baris, Kolom $kolom: $num1 + $num2 = $correctSum -> $correctAnswer, User: $userAnswer");
+        error_log("Calculation - $num1 + $num2 = $correctSum → $correctAnswer, User: $userAnswerInt");
         
-        return ($userAnswer === $correctAnswer);
+        $result = ($userAnswerInt === $correctAnswer);
+        error_log("Result: " . ($result ? 'BENAR' : 'SALAH'));
+        
+        return $result;
     }
-
     /**
      * Memproses jawaban peserta untuk test Kraepelin - DIPERBAIKI
      */
