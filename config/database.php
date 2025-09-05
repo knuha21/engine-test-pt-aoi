@@ -15,7 +15,7 @@ if (!defined('ROOT_ACCESS')) {
     die('Akses langsung tidak diizinkan.');
 }
 
-// Mode debug - set ke false di production
+// Mode debug - set ke true untuk development
 define('DEBUG_MODE', true);
 
 // Error reporting berdasarkan mode debug
