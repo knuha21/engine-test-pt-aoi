@@ -1,8 +1,5 @@
 <?php
 class KRAEPELINTest {
-    public $answers;
-    public $startTime;
-    public $endTime;
     private $db;
     private $deret;
 
@@ -12,25 +9,33 @@ class KRAEPELINTest {
     }
 
     /**
-     * Validasi jawaban Kraepelin yang benar
+     * Validasi jawaban Kraepelin yang benar - DIPERBAIKI
      */
     private function validateKraepelinAnswer($baris, $kolom, $userAnswer) {
+        // Pastikan kolom yang dijumlahkan ada dalam deret
         if (!isset($this->deret[$baris][$kolom]) || !isset($this->deret[$baris][$kolom + 1])) {
+            error_log("Error: Invalid column index - Baris: $baris, Kolom: $kolom");
             return false;
         }
         
-        $num1 = $this->deret[$baris][$kolom];
-        $num2 = $this->deret[$baris][$kolom + 1];
+        $num1 = (int)$this->deret[$baris][$kolom];
+        $num2 = (int)$this->deret[$baris][$kolom + 1];
         $correctSum = $num1 + $num2;
         
         // Untuk Kraepelin, hanya digit terakhir yang ditulis
         $correctAnswer = $correctSum % 10;
         
-        return ($userAnswer == $correctAnswer);
+        // Konversi userAnswer ke integer untuk perbandingan
+        $userAnswer = (int)$userAnswer;
+        
+        // Debug info
+        error_log("KRAEPELIN - Baris $baris, Kolom $kolom: $num1 + $num2 = $correctSum -> $correctAnswer, User: $userAnswer");
+        
+        return ($userAnswer === $correctAnswer);
     }
 
     /**
-     * Memproses jawaban peserta untuk test Kraepelin
+     * Memproses jawaban peserta untuk test Kraepelin - DIPERBAIKI
      */
     public function prosesJawaban($jawaban) {
         $hasil = [];
@@ -40,8 +45,18 @@ class KRAEPELINTest {
         
         $startTime = time();
         
+        // Debug: Log deret yang digunakan
+        error_log("Deret KRAEPELIN yang digunakan: " . json_encode($this->deret));
+        error_log("Jawaban dari form: " . json_encode($jawaban));
+        
         foreach ($jawaban as $baris => $kolomJawaban) {
             foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
+                // Skip jika jawaban kosong
+                if (empty($jawabanPeserta) && $jawabanPeserta !== '0') {
+                    error_log("Skipping empty answer - Baris: $baris, Kolom: $kolom");
+                    continue;
+                }
+                
                 $totalQuestions++;
                 
                 // Validasi jawaban yang benar
@@ -54,12 +69,19 @@ class KRAEPELINTest {
                     $score = 0;
                 }
                 
+                $num1 = $this->deret[$baris][$kolom];
+                $num2 = isset($this->deret[$baris][$kolom + 1]) ? $this->deret[$baris][$kolom + 1] : 'N/A';
+                $expected = isset($this->deret[$baris][$kolom + 1]) ? ($num1 + $num2) % 10 : 'N/A';
+                
                 $hasil[] = [
                     'baris' => $baris,
                     'kolom' => $kolom,
                     'jawaban' => $jawabanPeserta,
                     'is_correct' => $isCorrect,
-                    'score' => $score
+                    'score' => $score,
+                    'num1' => $num1,
+                    'num2' => $num2,
+                    'expected' => $expected
                 ];
                 
                 $totalScore += $score;
@@ -110,6 +132,9 @@ class KRAEPELINTest {
         // Deteksi anomaly waktu
         $timeAnomaly = $this->detectTimeAnomaly($duration, $totalQuestions);
         
+        // Log hasil processing
+        error_log("KRAEPELIN Results - Total: $totalQuestions, Correct: $correctAnswers, Accuracy: " . number_format($accuracy, 1) . "%");
+        
         return [
             'answers' => $hasil,
             'total_score' => $totalScore,
@@ -123,7 +148,7 @@ class KRAEPELINTest {
             'indikasi_kelelahan' => $fatigue,
             'time_anomaly' => $timeAnomaly,
             'test_date' => date('Y-m-d H:i:s'),
-            'deret' => $this->deret // Simpan deret untuk referensi
+            'deret' => $this->deret
         ];
     }
     
@@ -131,7 +156,7 @@ class KRAEPELINTest {
      * Deteksi anomaly waktu pengerjaan
      */
     private function detectTimeAnomaly($duration, $totalQuestions) {
-        $expectedTimePerQuestion = 3; // 3 detik per soal (normal)
+        $expectedTimePerQuestion = 3;
         $expectedTime = $totalQuestions * $expectedTimePerQuestion;
         
         if ($duration < $expectedTime * 0.3) {
@@ -157,7 +182,15 @@ class KRAEPELINTest {
                 VALUES (?, 'KRAEPELIN', ?, NOW())
             ");
             
-            return $query->execute([$participantId, $resultsJson]);
+            $success = $query->execute([$participantId, $resultsJson]);
+            
+            if ($success) {
+                error_log("KRAEPELIN test results saved successfully for participant: $participantId");
+            } else {
+                error_log("Failed to save KRAEPELIN test results for participant: $participantId");
+            }
+            
+            return $success;
         } catch (Exception $e) {
             error_log("Error saving Kraepelin test results: " . $e->getMessage());
             return false;
