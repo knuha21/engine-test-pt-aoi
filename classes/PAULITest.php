@@ -1,50 +1,66 @@
 <?php
 /**
- * Class PauliTest - Untuk menangani proses testing Pauli
+ * Class PauliTest - Untuk menangani proses testing Pauli - DIPERBAIKI
  */
-class PAULITest {
+class PauliTest {
     private $db;
     private $deret;
     
-    public function __construct() {
+    public function __construct($deret = null) {
+        $this->deret = $deret;
         $this->db = getDBConnection();
     }
     
     /**
-     * Validasi jawaban Pauli yang benar
+     * Validasi jawaban Pauli yang benar - DIPERBAIKI
      */
-    private function validatePauliAnswer($baris, $kolom, $userAnswer, $deret) {
-        if (!isset($deret[$baris][$kolom]) || !isset($deret[$baris][$kolom + 1])) {
+    private function validatePauliAnswer($baris, $kolom, $userAnswer) {
+        if (!isset($this->deret[$baris][$kolom]) || !isset($this->deret[$baris][$kolom + 1])) {
+            error_log("PAULI Error: Invalid column index - Baris: $baris, Kolom: $kolom");
             return false;
         }
         
-        $num1 = $deret[$baris][$kolom];
-        $num2 = $deret[$baris][$kolom + 1];
+        $num1 = (int)$this->deret[$baris][$kolom];
+        $num2 = (int)$this->deret[$baris][$kolom + 1];
         $correctSum = $num1 + $num2;
         
         // Untuk Pauli, hanya digit terakhir yang ditulis
         $correctAnswer = $correctSum % 10;
         
+        // Konversi userAnswer ke integer
+        $userAnswer = (int)$userAnswer;
+        
+        // Debug info
+        error_log("PAULI - Baris $baris, Kolom $kolom: $num1 + $num2 = $correctSum -> $correctAnswer, User: $userAnswer");
+        
         return ($userAnswer == $correctAnswer);
     }
     
     /**
-     * Memproses jawaban peserta dan menghitung skor
+     * Memproses jawaban peserta dan menghitung skor - DIPERBAIKI
      */
-    public function prosesJawaban($jawaban, $deret) {
-        $this->deret = $deret;
+    public function prosesJawaban($jawaban) {
         $hasil = [];
         $totalScore = 0;
         $correctAnswers = 0;
         $totalQuestions = 0;
         
-        // Hitung jawaban benar dan salah
+        // Debug: Log deret yang digunakan
+        error_log("Deret PAULI yang digunakan: " . json_encode($this->deret));
+        error_log("Jawaban PAULI dari form: " . json_encode($jawaban));
+        
         foreach ($jawaban as $baris => $kolomJawaban) {
             foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
+                // Skip jika jawaban kosong
+                if (empty($jawabanPeserta) && $jawabanPeserta !== '0') {
+                    error_log("PAULI Skipping empty answer - Baris: $baris, Kolom: $kolom");
+                    continue;
+                }
+                
                 $totalQuestions++;
                 
                 // Validasi jawaban Pauli yang benar
-                $isCorrect = $this->validatePauliAnswer($baris, $kolom, $jawabanPeserta, $deret);
+                $isCorrect = $this->validatePauliAnswer($baris, $kolom, $jawabanPeserta);
                 
                 if ($isCorrect) {
                     $correctAnswers++;
@@ -53,12 +69,19 @@ class PAULITest {
                     $score = 0;
                 }
                 
+                $num1 = $this->deret[$baris][$kolom];
+                $num2 = isset($this->deret[$baris][$kolom + 1]) ? $this->deret[$baris][$kolom + 1] : 'N/A';
+                $expected = isset($this->deret[$baris][$kolom + 1]) ? ($num1 + $num2) % 10 : 'N/A';
+                
                 $hasil[] = [
                     'baris' => $baris,
                     'kolom' => $kolom,
                     'jawaban' => $jawabanPeserta,
                     'is_correct' => $isCorrect,
-                    'score' => $score
+                    'score' => $score,
+                    'num1' => $num1,
+                    'num2' => $num2,
+                    'expected' => $expected
                 ];
                 
                 $totalScore += $score;
@@ -69,10 +92,13 @@ class PAULITest {
         $accuracy = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
         
         // Hitung fluktuasi (konsistensi)
-        $fluctuation = $this->hitungFluktuasi($jawaban, $deret);
+        $fluctuation = $this->hitungFluktuasi($hasil);
         
         // Deteksi anomaly
         $consistencyWarning = $fluctuation > 2.0 ? 'WARNING: Fluktuasi tinggi - konsistensi kurang' : null;
+        
+        // Log hasil processing
+        error_log("PAULI Results - Total: $totalQuestions, Correct: $correctAnswers, Accuracy: " . number_format($accuracy, 1) . "%");
         
         return [
             'answers' => $hasil,
@@ -82,35 +108,37 @@ class PAULITest {
             'accuracy' => $accuracy,
             'fluctuation' => $fluctuation,
             'consistency_warning' => $consistencyWarning,
-            'test_date' => date('Y-m-d H:i:s')
+            'test_date' => date('Y-m-d H:i:s'),
+            'deret' => $this->deret
         ];
     }
     
     /**
-     * Menghitung fluktuasi jawaban (konsistensi)
+     * Menghitung fluktuasi jawaban (konsistensi) - DIPERBAIKI
      */
-    private function hitungFluktuasi($jawaban, $deret) {
+    private function hitungFluktuasi($jawaban) {
         $correctPerRow = [];
         
         // Hitung jawaban benar per baris dengan validasi
-        foreach ($jawaban as $baris => $kolomJawaban) {
-            $correctCount = 0;
-            foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
-                if ($this->validatePauliAnswer($baris, $kolom, $jawabanPeserta, $deret)) {
-                    $correctCount++;
-                }
+        foreach ($jawaban as $answer) {
+            $baris = $answer['baris'];
+            if (!isset($correctPerRow[$baris])) {
+                $correctPerRow[$baris] = 0;
             }
-            $correctPerRow[] = $correctCount;
+            if ($answer['is_correct']) {
+                $correctPerRow[$baris]++;
+            }
         }
         
         // Hitung fluktuasi (standar deviasi)
         if (count($correctPerRow) > 1) {
-            $mean = array_sum($correctPerRow) / count($correctPerRow);
+            $values = array_values($correctPerRow);
+            $mean = array_sum($values) / count($values);
             $sumSquaredDiff = 0;
-            foreach ($correctPerRow as $value) {
+            foreach ($values as $value) {
                 $sumSquaredDiff += pow($value - $mean, 2);
             }
-            return sqrt($sumSquaredDiff / count($correctPerRow));
+            return sqrt($sumSquaredDiff / count($values));
         }
         
         return 0;
@@ -128,17 +156,23 @@ class PAULITest {
                 VALUES (?, 'PAULI', ?, NOW())
             ");
             
-            return $query->execute([$participantId, $resultsJson]);
+            $success = $query->execute([$participantId, $resultsJson]);
+            
+            if ($success) {
+                error_log("PAULI test results saved successfully for participant: $participantId");
+            } else {
+                error_log("Failed to save PAULI test results for participant: $participantId");
+            }
+            
+            return $success;
         } catch (Exception $e) {
-            error_log("Error saving test results: " . $e->getMessage());
+            error_log("Error saving Pauli test results: " . $e->getMessage());
             return false;
         }
     }
     
     /**
      * Mengambil hasil test berdasarkan ID
-     * @param int $testId ID test
-     * @return array|null Data hasil test
      */
     public function getHasilTest($testId) {
         try {
@@ -165,7 +199,6 @@ class PAULITest {
     
     /**
      * Mengambil semua hasil test Pauli
-     * @return array Data hasil test
      */
     public function getAllHasilTest() {
         try {
@@ -183,7 +216,7 @@ class PAULITest {
                     $result['results'] = json_decode($result['results'], true);
                 }
                 return $results;
-                }
+            }
         } catch (Exception $e) {
             error_log("Error fetching all test results: " . $e->getMessage());
         }
