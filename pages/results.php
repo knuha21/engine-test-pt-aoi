@@ -562,25 +562,14 @@ switch (strtoupper($testType)) {
         <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
-                
-            <!-- Tambahkan tampilan deret jika ada -->
-            <?php if (isset($testResults['deret'])): ?>
-            <div class="test-instructions">
-                <h3>Deret Angka yang Digunakan</h3>
-                <div style="overflow-x: auto;">
-                    <table class="results-table" style="font-family: monospace;">
-                        <?php for ($i = 0; $i < count($testResults['deret']); $i++): ?>
-                        <tr>
-                            <td style="font-weight: bold; background-color: #f2f2f2;">Baris <?php echo $i + 1; ?></td>
-                            <?php for ($j = 0; $j < count($testResults['deret'][$i]); $j++): ?>
-                            <td style="text-align: center; border: 1px solid #ddd; padding: 5px;">
-                                <?php echo $testResults['deret'][$i][$j]; ?>
-                            </td>
-                            <?php endfor; ?>
-                        </tr>
-                        <?php endfor; ?>
-                    </table>
-                </div>
+            
+            <!-- Tambahkan debug info untuk testing -->
+            <?php if (DEBUG_MODE && isset($testResults['answers'])): ?>
+            <div class="test-instructions" style="background-color: #ffe6e6;">
+                <h3>🔧 Debug Information (Hanya di Mode Development)</h3>
+                <p><strong>Total Soal:</strong> <?php echo $testResults['total_questions']; ?></p>
+                <p><strong>Jawaban Benar:</strong> <?php echo $testResults['correct_answers']; ?></p>
+                <p><strong>Akurasi:</strong> <?php echo number_format($testResults['accuracy'], 1); ?>%</p>
             </div>
             <?php endif; ?>
                             
