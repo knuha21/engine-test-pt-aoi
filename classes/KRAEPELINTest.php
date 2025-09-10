@@ -1,32 +1,58 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 class KRAEPELINTest {
     private $db;
     private $deret;
 
     function __construct($deret = null) {
-        $this->deret = $deret;
+        // Handle berbagai format deret
+        if (is_string($deret)) {
+            // Coba decode JSON string
+            $decoded = json_decode($deret, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $this->deret = $decoded;
+                error_log("Deret decoded from JSON string: " . count($decoded) . " rows");
+            } else {
+                // Fallback: try to parse as serialized array
+                $unserialized = @unserialize($deret);
+                if ($unserialized !== false && is_array($unserialized)) {
+                    $this->deret = $unserialized;
+                    error_log("Deret unserialized from string: " . count($unserialized) . " rows");
+                } else {
+                    throw new Exception("Deret harus berupa array atau string JSON yang valid");
+                }
+            }
+        } elseif (is_array($deret)) {
+            $this->deret = $deret;
+            error_log("Deret from array: " . count($deret) . " rows");
+        } else {
+            throw new Exception("Deret harus berupa array, diberikan: " . gettype($deret));
+        }
+        
         $this->db = getDBConnection();
         
-        // Debug: Log constructor
-        error_log("KRAEPELINTest Constructor - Deret: " . json_encode($deret));
+        // Validasi struktur deret
+        if (empty($this->deret) || !is_array($this->deret)) {
+            throw new Exception("Deret tidak boleh kosong");
+        }
+        
+        error_log("KRAEPELINTest Constructor - Deret rows: " . count($this->deret));
     }
 
     /**
-     * Validasi jawaban Kraepelin yang benar - DIPERBAIKI LAGI
+     * Validasi jawaban Kraepelin yang benar
      */
     private function validateKraepelinAnswer($baris, $kolom, $userAnswer) {
-        error_log("Validating - Baris: $baris, Kolom: $kolom, Answer: $userAnswer");
-        
-        // Pastikan deret ada
-        if (!is_array($this->deret) || !isset($this->deret[$baris])) {
-            error_log("ERROR: Deret tidak valid atau baris $baris tidak ada");
+        // Pastikan deret ada dan baris valid
+        if (!is_array($this->deret) || !isset($this->deret[$baris]) || !is_array($this->deret[$baris])) {
             return false;
         }
         
-        // Pastikan kolom yang dijumlahkan ada dalam deret
+        // Pastikan kolom dan kolom+1 ada
         if (!isset($this->deret[$baris][$kolom]) || !isset($this->deret[$baris][$kolom + 1])) {
-            error_log("ERROR: Kolom tidak valid - Baris: $baris, Kolom: $kolom");
-            error_log("Deret available: " . json_encode($this->deret[$baris]));
             return false;
         }
         
@@ -34,28 +60,21 @@ class KRAEPELINTest {
         $num2 = (int)$this->deret[$baris][$kolom + 1];
         $correctSum = $num1 + $num2;
         
-        // Untuk Kraepelin, hanya digit terakhir yang ditulis
+        // Digit terakhir yang ditulis
         $correctAnswer = $correctSum % 10;
         
-        // Konversi userAnswer ke integer untuk perbandingan
         $userAnswer = trim($userAnswer);
         if ($userAnswer === '') {
-            error_log("ERROR: Jawaban kosong");
             return false;
         }
         
         $userAnswerInt = (int)$userAnswer;
         
-        // Debug info
-        error_log("Calculation - $num1 + $num2 = $correctSum → $correctAnswer, User: $userAnswerInt");
-        
-        $result = ($userAnswerInt === $correctAnswer);
-        error_log("Result: " . ($result ? 'BENAR' : 'SALAH'));
-        
-        return $result;
+        return ($userAnswerInt === $correctAnswer);
     }
+
     /**
-     * Memproses jawaban peserta untuk test Kraepelin - DIPERBAIKI
+     * Memproses jawaban peserta untuk test Kraepelin
      */
     public function prosesJawaban($jawaban) {
         $hasil = [];
@@ -63,40 +82,60 @@ class KRAEPELINTest {
         $correctAnswers = 0;
         $totalQuestions = 0;
         
-        $startTime = time();
+        error_log("=== KRAEPELIN PROCESSING START ===");
+        error_log("Deret type: " . gettype($this->deret));
+        error_log("Deret structure: " . (is_array($this->deret) ? count($this->deret) . " rows" : "Not array"));
+        error_log("Jawaban structure: " . (is_array($jawaban) ? count($jawaban) . " rows" : "Not array"));
         
-        // Debug: Log deret yang digunakan
-        error_log("Deret KRAEPELIN yang digunakan: " . json_encode($this->deret));
-        error_log("Jawaban dari form: " . json_encode($jawaban));
+        if (!is_array($jawaban)) {
+            error_log("ERROR: Jawaban bukan array");
+            return $this->createEmptyResult();
+        }
         
-        foreach ($jawaban as $baris => $kolomJawaban) {
-            foreach ($kolomJawaban as $kolom => $jawabanPeserta) {
+        $jumlahBaris = count($this->deret);
+        
+        // Iterasi melalui setiap baris
+        for ($baris = 0; $baris < $jumlahBaris; $baris++) {
+            if (!isset($this->deret[$baris]) || !is_array($this->deret[$baris])) {
+                error_log("WARNING: Baris $baris tidak valid dalam deret");
+                continue;
+            }
+            
+            if (!isset($jawaban[$baris]) || !is_array($jawaban[$baris])) {
+                error_log("WARNING: Baris $baris tidak ada dalam jawaban");
+                continue;
+            }
+            
+            $jumlahKolom = count($this->deret[$baris]);
+            
+            // Iterasi melalui setiap kolom (kecuali kolom terakhir)
+            for ($kolom = 0; $kolom < $jumlahKolom - 1; $kolom++) {
+                $userAnswer = isset($jawaban[$baris][$kolom]) ? trim($jawaban[$baris][$kolom]) : '';
+                
                 // Skip jika jawaban kosong
-                if (empty($jawabanPeserta) && $jawabanPeserta !== '0') {
-                    error_log("Skipping empty answer - Baris: $baris, Kolom: $kolom");
+                if ($userAnswer === '') {
+                    error_log("SKIP: Baris $baris, Kolom $kolom - Jawaban kosong");
                     continue;
                 }
                 
                 $totalQuestions++;
                 
-                // Validasi jawaban yang benar
-                $isCorrect = $this->validateKraepelinAnswer($baris, $kolom, $jawabanPeserta);
+                $isCorrect = $this->validateKraepelinAnswer($baris, $kolom, $userAnswer);
+                $score = $isCorrect ? 1 : 0;
                 
                 if ($isCorrect) {
                     $correctAnswers++;
-                    $score = 1;
-                } else {
-                    $score = 0;
                 }
                 
+                // Ambil angka dari deret
                 $num1 = $this->deret[$baris][$kolom];
-                $num2 = isset($this->deret[$baris][$kolom + 1]) ? $this->deret[$baris][$kolom + 1] : 'N/A';
-                $expected = isset($this->deret[$baris][$kolom + 1]) ? ($num1 + $num2) % 10 : 'N/A';
+                $num2 = $this->deret[$baris][$kolom + 1];
+                $expected = ($num1 + $num2) % 10;
                 
                 $hasil[] = [
                     'baris' => $baris,
                     'kolom' => $kolom,
-                    'jawaban' => $jawabanPeserta,
+                    'jawaban' => $userAnswer,
                     'is_correct' => $isCorrect,
                     'score' => $score,
                     'num1' => $num1,
@@ -105,55 +144,17 @@ class KRAEPELINTest {
                 ];
                 
                 $totalScore += $score;
+                
+                error_log("PROCESSED: Baris " . ($baris+1) . ", Kolom " . ($kolom+1) . 
+                         " - $num1+$num2=" . ($num1+$num2) . "→$expected, " .
+                         "Jawaban: $userAnswer, Correct: " . ($isCorrect ? 'YES' : 'NO'));
             }
         }
         
-        $endTime = time();
-        $duration = $endTime - $startTime;
         $accuracy = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
         
-        // Analisis tambahan
-        $sections = [];
-        $patternErrors = ['awal' => 0, 'tengah' => 0, 'akhir' => 0];
-        $fatigue = false;
-        
-        if (count($hasil) > 0) {
-            // Analisis per section
-            foreach ($hasil as $i => $answer) {
-                $sectionIndex = floor($i / 10);
-                if (!isset($sections[$sectionIndex])) $sections[$sectionIndex] = 0;
-                $sections[$sectionIndex] += $answer['is_correct'] ? 1 : 0;
-            }
-            
-            // Analisis pola kesalahan
-            $third = floor(count($hasil)/3);
-            $early = array_slice($hasil, 0, $third);
-            $middle = array_slice($hasil, $third, $third);
-            $late = array_slice($hasil, $third*2);
-            
-            $countWrong = function($arr){
-                return count(array_filter($arr, function($a) { 
-                    return !$a['is_correct']; 
-                }));
-            };
-            
-            $patternErrors = [
-                'awal' => $countWrong($early),
-                'tengah' => $countWrong($middle),
-                'akhir' => $countWrong($late)
-            ];
-            
-            // Analisis kelelahan
-            $earlyScore = array_sum(array_column($early, 'is_correct'));
-            $lateScore = array_sum(array_column($late, 'is_correct'));
-            $fatigue = $lateScore < $earlyScore * 0.8;
-        }
-        
-        // Deteksi anomaly waktu
-        $timeAnomaly = $this->detectTimeAnomaly($duration, $totalQuestions);
-        
-        // Log hasil processing
-        error_log("KRAEPELIN Results - Total: $totalQuestions, Correct: $correctAnswers, Accuracy: " . number_format($accuracy, 1) . "%");
+        error_log("FINAL RESULT: Total: $totalQuestions, Correct: $correctAnswers, Accuracy: " . number_format($accuracy, 1) . "%");
+        error_log("=== KRAEPELIN PROCESSING END ===");
         
         return [
             'answers' => $hasil,
@@ -161,33 +162,21 @@ class KRAEPELINTest {
             'total_questions' => $totalQuestions,
             'correct_answers' => $correctAnswers,
             'accuracy' => $accuracy,
-            'durasi_detik' => $duration,
-            'rata_waktu_per_soal' => $totalQuestions > 0 ? $duration / $totalQuestions : 0,
-            'pola_kesalahan' => $patternErrors,
-            'grafik_per_section' => array_values($sections),
-            'indikasi_kelelahan' => $fatigue,
-            'time_anomaly' => $timeAnomaly,
             'test_date' => date('Y-m-d H:i:s'),
             'deret' => $this->deret
         ];
     }
     
-    /**
-     * Deteksi anomaly waktu pengerjaan
-     */
-    private function detectTimeAnomaly($duration, $totalQuestions) {
-        $expectedTimePerQuestion = 3;
-        $expectedTime = $totalQuestions * $expectedTimePerQuestion;
-        
-        if ($duration < $expectedTime * 0.3) {
-            return 'WARNING: Waktu pengerjaan terlalu cepat (mungkin terburu-buru)';
-        }
-        
-        if ($duration > $expectedTime * 2) {
-            return 'WARNING: Waktu pengerjaan terlalu lambat (mungkin ada gangguan)';
-        }
-        
-        return null;
+    private function createEmptyResult() {
+        return [
+            'answers' => [],
+            'total_score' => 0,
+            'total_questions' => 0,
+            'correct_answers' => 0,
+            'accuracy' => 0,
+            'test_date' => date('Y-m-d H:i:s'),
+            'deret' => $this->deret
+        ];
     }
     
     /**
@@ -195,6 +184,11 @@ class KRAEPELINTest {
      */
     public function simpanHasilTest($participantId, $hasilOlahan) {
         try {
+            // Pastikan deret disimpan sebagai JSON string
+            if (is_array($hasilOlahan) && isset($hasilOlahan['deret'])) {
+                $hasilOlahan['deret'] = json_encode($hasilOlahan['deret']);
+            }
+            
             $resultsJson = json_encode($hasilOlahan);
             
             $query = $this->db->prepare("
