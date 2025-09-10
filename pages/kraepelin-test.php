@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
-
 requireLogin();
 
 $db = getDBConnection();
@@ -14,24 +13,57 @@ if (!$participant) {
     exit();
 }
 
+// Cek apakah sudah ada deret di session, jika tidak buat baru
+if (empty($_SESSION['kraepelin_deret']) || $_SERVER['REQUEST_METHOD'] == 'GET') {
+    // Data untuk test Kraepelin (deret angka)
+    $deret = [];
+    $jumlahKolom = 10;
+    $jumlahBaris = 10;
+    
+    // Generate deret angka acak untuk test Kraepelin
+    for ($i = 0; $i < $jumlahBaris; $i++) {
+        $baris = [];
+        for ($j = 0; $j < $jumlahKolom; $j++) {
+            $baris[] = rand(0, 9);
+        }
+        $deret[] = $baris;
+    }
+    
+    // Simpan deret ke session
+    $_SESSION['kraepelin_deret'] = $deret;
+    $_SESSION['kraepelin_generated'] = time();
+    
+    error_log("Generated new deret: " . json_encode($deret));
+} else {
+    // Gunakan deret dari session
+    $deret = $_SESSION['kraepelin_deret'];
+    error_log("Using deret from session: " . json_encode($deret));
+}
+
 // Jika form disubmit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
-        // Pastikan class KraepelinTest ada
+        // Pastikan class KRAEPELINTest ada
         if (!class_exists('KRAEPELINTest')) {
-            throw new Exception('KraepelinTest class not found');
+            throw new Exception('KRAEPELINTest class not found');
         }
         
-        $kraepelinTest = new KRAEPELINTest($deret);
+        // Gunakan deret dari SESSION, bukan variabel lokal
+        $kraepelinTest = new KRAEPELINTest($_SESSION['kraepelin_deret']);
         $jawaban = $_POST['answers'];
         
-        // Debug: Log input jawaban
+        // Debug: Log input jawaban dan deret
+        error_log("Deret from SESSION: " . json_encode($_SESSION['kraepelin_deret']));
         error_log("Raw answers from POST: " . json_encode($jawaban));
         
         $hasilOlahan = $kraepelinTest->prosesJawaban($jawaban);
         
         // Simpan ke database
         if ($kraepelinTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
+            // Hapus deret dari session setelah berhasil disimpan
+            unset($_SESSION['kraepelin_deret']);
+            unset($_SESSION['kraepelin_generated']);
+            
             // Redirect ke results
             header("Location: results.php?test=kraepelin");
             exit();
@@ -42,20 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $error = "Error: " . $e->getMessage();
         error_log("Error in kraepelin-test.php: " . $e->getMessage());
     }
-}
-
-// Data untuk test Kraepelin (deret angka)
-$deret = [];
-$jumlahKolom = 10;
-$jumlahBaris = 10;
-
-// Generate deret angka acak untuk test Kraepelin
-for ($i = 0; $i < $jumlahBaris; $i++) {
-    $baris = [];
-    for ($j = 0; $j < $jumlahKolom; $j++) {
-        $baris[] = rand(0, 9);
-    }
-    $deret[] = $baris;
 }
 ?>
 
@@ -153,12 +171,10 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             transition: transform 0.3s ease;
         }
 
-        /* Timer akan sedikit naik saat di-scroll */
         .floating-timer-kraepelin.hidden {
             transform: translateY(-100px);
         }
 
-        /* Progress Circle untuk visualisasi waktu */
         .progress-circle {
             width: 60px;
             height: 60px;
@@ -190,8 +206,7 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             font-weight: bold;
             margin-top: 5px;
         }
-
-        /* Responsif untuk mobile */
+        
         @media (max-width: 768px) {
             .floating-timer-kraepelin {
                 top: 10px;
@@ -293,7 +308,6 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             appearance: textfield;
         }
         
-        /* Hilangkan panah atas-bawah pada input number */
         .answer-input::-webkit-outer-spin-button,
         .answer-input::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -369,19 +383,12 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
         <header>
             <h1>Kraepelin Test</h1>
             <p class="subtitle">PT. Apparel One Indonesia</p>
-        </header>
-        
-        <!-- Floating Timer -->
-        <div class="floating-timer-kraepelin" id="floating-timer">
-            <div class="progress-circle">
-                <svg viewBox="0 0 36 36">
-                    <circle class="progress-circle-bg" cx="18" cy="18" r="15.9"></circle>
-                    <circle class="progress-circle-fg" cx="18" cy="18" r="15.9" 
-                            stroke-dasharray="100, 100" id="progress-circle"></circle>
-                </svg>
+            <?php if (DEBUG_MODE && isset($_SESSION['kraepelin_deret'])): ?>
+            <div style="background: rgba(255,255,255,0.2); padding: 10px; margin-top: 10px; border-radius: 5px;">
+                <small>DEBUG: Deret ID <?php echo $_SESSION['kraepelin_generated']; ?></small>
             </div>
-            <div class="timer-text" id="timer">15:00</div>
-        </div>
+            <?php endif; ?>
+        </header>
         
         <div class="test-info">
             <p><strong>Peserta:</strong> <?php echo htmlspecialchars($participant['name']); ?> | <strong>Email:</strong> <?php echo htmlspecialchars($participant['email']); ?></p>
@@ -642,7 +649,32 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             }
         });
         
-        // Mulai timer ketika halaman dimuat
+        // Fungsi untuk mengisi semua jawaban dengan benar
+        function fillAllCorrectAnswers() {
+            const rows = <?php echo count($deret); ?>;
+            const cols = <?php echo count($deret[0]) - 1; ?>;
+            const deret = <?php echo json_encode($deret); ?>;
+            
+            console.log("Filling correct answers for deret:", deret);
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const num1 = deret[i][j];
+                    const num2 = deret[i][j + 1];
+                    const correctAnswer = (num1 + num2) % 10;
+                    
+                    const input = document.querySelector(`input[name="answers[${i}][${j}]"]`);
+                    if (input) {
+                        input.value = correctAnswer;
+                        console.log(`Baris ${i+1}, Kolom ${j+1}: ${num1}+${num2}=${correctAnswer}`);
+                    }
+                }
+            }
+            
+            alert('Semua jawaban telah diisi dengan benar!');
+        }
+
+        // Tambahkan button debug jika dalam mode development
         document.addEventListener('DOMContentLoaded', function() {
             updateTimer();
             
@@ -651,6 +683,41 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
             if (firstInput) {
                 firstInput.focus();
             }
+            
+            // Tambahkan button debug jika dalam mode development
+            if (<?php echo DEBUG_MODE ? 'true' : 'false'; ?>) {
+                const debugBtn = document.createElement('button');
+                debugBtn.textContent = 'DEBUG: Isi Semua Jawaban Benar';
+                debugBtn.style.position = 'fixed';
+                debugBtn.style.top = '10px';
+                debugBtn.style.left = '10px';
+                debugBtn.style.zIndex = '1000';
+                debugBtn.style.padding = '10px';
+                debugBtn.style.background = 'red';
+                debugBtn.style.color = 'white';
+                debugBtn.style.border = 'none';
+                debugBtn.style.borderRadius = '5px';
+                debugBtn.style.cursor = 'pointer';
+                debugBtn.onclick = fillAllCorrectAnswers;
+                document.body.appendChild(debugBtn);
+            }
+            
+            // Pastikan semua input memiliki value sebelum submit
+            document.getElementById('kraepelin-test-form').addEventListener('submit', function(e) {
+                const allInputs = document.querySelectorAll('.answer-input');
+                let emptyCount = 0;
+                
+                allInputs.forEach(input => {
+                    if (input.value === '') {
+                        input.value = '0'; // Set default value untuk input kosong
+                        emptyCount++;
+                    }
+                });
+                
+                if (emptyCount > 0) {
+                    console.log(`Mengisi ${emptyCount} input kosong dengan nilai 0`);
+                }
+            });
         });
     </script>
 </body>
