@@ -160,4 +160,15 @@ set_exception_handler(function($exception) {
 if (!defined('APP_DEBUG')) {
     define('APP_DEBUG', true);
 }
+
+
+// Set session timeout untuk deret (10 menit)
+if (isset($_SESSION['kraepelin_generated'])) {
+    $timeout = 10 * 60; // 10 menit
+    if (time() - $_SESSION['kraepelin_generated'] > $timeout) {
+        unset($_SESSION['kraepelin_deret']);
+        unset($_SESSION['kraepelin_generated']);
+        error_log("Kraepelin deret expired after timeout");
+    }
+}
 ?>
