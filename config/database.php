@@ -11,9 +11,9 @@
  */
 
 // Pastikan tidak ada akses langsung ke file ini
-if (!defined('ROOT_ACCESS')) {
-    die('Akses langsung tidak diizinkan.');
-}
+// if (!defined('ROOT_ACCESS')) {
+//     die('Akses langsung tidak diizinkan.');
+// }
 
 // Mode debug - set ke true untuk development
 define('DEBUG_MODE', true);
