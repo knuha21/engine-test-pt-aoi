@@ -53,4 +53,22 @@ function debug($data, $exit = false) {
         }
     }
 }
+
+spl_autoload_register(function ($className) {
+    // Support untuk berbagai format penulisan class
+    $classFile = __DIR__ . '/classes/' . $className . '.php';
+    if (file_exists($classFile)) {
+        require_once $classFile;
+        return true;
+    }
+    
+    // Coba alternative naming convention
+    $classFile = __DIR__ . '/classes/' . strtolower($className) . '.php';
+    if (file_exists($classFile)) {
+        require_once $classFile;
+        return true;
+    }
+    
+    return false;
+});
 ?>
