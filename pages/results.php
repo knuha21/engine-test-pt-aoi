@@ -562,39 +562,38 @@ switch (strtoupper($testType)) {
         <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
-            
-            <!-- Tambahkan debug info untuk testing -->
-            <?php if (DEBUG_MODE && isset($testResults['answers'])): ?>
-            <div class="test-instructions" style="background-color: #ffe6e6;">
-                <h3>🔧 Debug Information (Hanya di Mode Development)</h3>
-                <p><strong>Total Soal:</strong> <?php echo $testResults['total_questions']; ?></p>
-                <p><strong>Jawaban Benar:</strong> <?php echo $testResults['correct_answers']; ?></p>
-                <p><strong>Akurasi:</strong> <?php echo number_format($testResults['accuracy'], 1); ?>%</p>
-            </div>
+            <?php if (DEBUG_MODE): ?>
+                <div class="debug-info" style="background: #ffe6e6; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                    <h3>🔧 Debug Information</h3>
+                    <p><strong>Total Soal:</strong> <?php echo $testResults['total_questions']; ?></p>
+                    <p><strong>Jawaban Benar:</strong> <?php echo $testResults['correct_answers']; ?></p>
+                    <p><strong>Akurasi:</strong> <?php echo number_format($testResults['accuracy'], 1); ?>%</p>
+                    <p><strong>Deret yang digunakan:</strong> <?php echo json_encode($testResults['deret']); ?></p>
+                </div>
             <?php endif; ?>
-                            
+            
             <div class="test-stats">
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Skor</div>
                 </div>
-                            
+                
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
                     <div class="stat-label">Jawaban Benar</div>
                 </div>
-                            
+                
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Soal</div>
                 </div>
-                            
+                
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
                     <div class="stat-label">Tingkat Akurasi</div>
                 </div>
             </div>
-                            
+            
             <div class="interpretation">
                 <h3>Interpretasi Hasil</h3>
                 <?php
@@ -621,13 +620,16 @@ switch (strtoupper($testType)) {
             <div class="answers-detail">
                 <h3>Detail Jawaban</h3>
                 <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
-
+            
                 <div class="answers-container">
                     <table class="answers-table kraepelin-answers-table">
                         <thead>
                             <tr>
                                 <th>Baris</th>
                                 <th>Kolom</th>
+                                <th>Angka 1</th>
+                                <th>Angka 2</th>
+                                <th>Jawaban Benar</th>
                                 <th>Jawaban Anda</th>
                                 <th>Status</th>
                                 <th>Skor</th>
@@ -638,6 +640,9 @@ switch (strtoupper($testType)) {
                             <tr>
                                 <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
                                 <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
+                                <td><?php echo htmlspecialchars($answer['num1']); ?></td>
+                                <td><?php echo htmlspecialchars($answer['num2']); ?></td>
+                                <td><?php echo htmlspecialchars($answer['expected']); ?></td>
                                 <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
                                     <?php echo htmlspecialchars($answer['jawaban']); ?>
                                 </td>
