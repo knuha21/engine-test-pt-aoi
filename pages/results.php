@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '/../bootstrap.php';
 
 // Pastikan user sudah login
@@ -22,6 +21,7 @@ $testQuery = $db->prepare("
     JOIN participants p ON r.participant_id = p.id 
     WHERE r.id = ? AND r.test_type = ?
 ");
+
 $testInfo = null;
 $testResults = null;
 
@@ -34,7 +34,25 @@ if ($testQuery->execute([$testId, strtoupper($testType)])) {
         // Jika decode gagal, coba tangani sebagai string JSON
         if (json_last_error() !== JSON_ERROR_NONE) {
             error_log("JSON decode error: " . json_last_error_msg());
-            $testResults = $testInfo['results']; // Simpan sebagai string untuk debugging
+            
+            // Coba sebagai serialized array
+            $testResults = @unserialize($testInfo['results']);
+            if ($testResults === false) {
+                // Fallback: simpan sebagai string untuk debugging
+                $testResults = $testInfo['results'];
+                error_log("Results is not JSON or serialized array, treating as string");
+            }
+        }
+        
+        // Handle khusus untuk Kraepelin test
+        if (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults) && isset($testResults['deret'])) {
+            // Pastikan deret dalam format yang benar
+            if (is_string($testResults['deret'])) {
+                $decodedDeret = json_decode($testResults['deret'], true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $testResults['deret'] = $decodedDeret;
+                }
+            }
         }
     }
 }
@@ -57,8 +75,8 @@ switch (strtoupper($testType)) {
         }
         break;
     case 'KRAEPELIN':
-        if (class_exists('KraepelinTest')) {
-            $testClass = new KraepelinTest();
+        if (class_exists('KRAEPELINTest')) {
+            $testClass = new KRAEPELINTest();
             $testTitle = 'Kraepelin Test';
         }
         break;
