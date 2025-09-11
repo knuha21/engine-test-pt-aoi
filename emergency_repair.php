@@ -2,9 +2,9 @@
 // emergency_repair.php
 require_once 'bootstrap.php';
 
-// if (!isAdmin()) {
-//     die('Hanya admin yang dapat mengakses script ini');
-// }
+if (!isAdmin()) {
+    die('Hanya admin yang dapat mengakses script ini');
+}
 
 echo "<h1>Emergency Repair Kraepelin Data</h1>";
 echo "<pre>";
