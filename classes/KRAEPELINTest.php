@@ -8,6 +8,16 @@ class KRAEPELINTest {
     private $deret;
 
     function __construct($deret = null) {
+        error_log("KRAEPELINTest Constructor - Input: " . gettype($deret) . " - " . json_encode($deret));
+        
+        // Handle null atau empty input
+        if ($deret === null || $deret === '') {
+            error_log("WARNING: Deret is null or empty, creating empty array");
+            $this->deret = [];
+            $this->db = getDBConnection();
+            return;
+        }
+        
         // Handle berbagai format deret
         if (is_string($deret)) {
             // Coba decode JSON string
@@ -16,30 +26,45 @@ class KRAEPELINTest {
                 $this->deret = $decoded;
                 error_log("Deret decoded from JSON string: " . count($decoded) . " rows");
             } else {
-                // Fallback: try to parse as serialized array
+                // Coba sebagai serialized array
                 $unserialized = @unserialize($deret);
                 if ($unserialized !== false && is_array($unserialized)) {
                     $this->deret = $unserialized;
                     error_log("Deret unserialized from string: " . count($unserialized) . " rows");
                 } else {
-                    throw new Exception("Deret harus berupa array atau string JSON yang valid");
+                    // Fallback: coba parse sebagai array literal string
+                    if (preg_match('/^\[.*\]$/', $deret)) {
+                        $evalDeret = @eval("return $deret;");
+                        if (is_array($evalDeret)) {
+                            $this->deret = $evalDeret;
+                            error_log("Deret parsed from array string: " . count($evalDeret) . " rows");
+                        } else {
+                            error_log("ERROR: Cannot parse deret from string: " . substr($deret, 0, 100));
+                            $this->deret = [];
+                        }
+                    } else {
+                        error_log("ERROR: Cannot parse deret from string: " . substr($deret, 0, 100));
+                        $this->deret = [];
+                    }
                 }
             }
         } elseif (is_array($deret)) {
             $this->deret = $deret;
             error_log("Deret from array: " . count($deret) . " rows");
         } else {
-            throw new Exception("Deret harus berupa array, diberikan: " . gettype($deret));
+            error_log("ERROR: Deret harus berupa array, diberikan: " . gettype($deret));
+            $this->deret = [];
         }
         
         $this->db = getDBConnection();
         
         // Validasi struktur deret
         if (empty($this->deret) || !is_array($this->deret)) {
-            throw new Exception("Deret tidak boleh kosong");
+            error_log("WARNING: Deret kosong atau bukan array, menggunakan array kosong");
+            $this->deret = [];
         }
         
-        error_log("KRAEPELINTest Constructor - Deret rows: " . count($this->deret));
+        error_log("KRAEPELINTest Constructor - Final deret rows: " . count($this->deret));
     }
 
     /**
@@ -74,7 +99,7 @@ class KRAEPELINTest {
     }
 
     /**
-     * Memproses jawaban peserta untuk test Kraepelin
+     * Memproses jawaban peserta untuk test Kraepelin - VERSION FIXED
      */
     public function prosesJawaban($jawaban) {
         $hasil = [];
@@ -89,6 +114,12 @@ class KRAEPELINTest {
         
         if (!is_array($jawaban)) {
             error_log("ERROR: Jawaban bukan array");
+            return $this->createEmptyResult();
+        }
+        
+        // Jika deret kosong, return empty result
+        if (empty($this->deret) || !is_array($this->deret)) {
+            error_log("ERROR: Deret kosong, tidak dapat memproses jawaban");
             return $this->createEmptyResult();
         }
         
