@@ -28,33 +28,95 @@ $testResults = null;
 if ($testQuery->execute([$testId, strtoupper($testType)])) {
     $testInfo = $testQuery->fetch(PDO::FETCH_ASSOC);
     if ($testInfo) {
+        error_log("Raw results from DB: " . substr($testInfo['results'], 0, 200) . "...");
+        
         // Decode JSON results
         $testResults = json_decode($testInfo['results'], true);
         
-        // Jika decode gagal, coba tangani sebagai string JSON
+        // Jika decode gagal, coba tangani berbagai format
         if (json_last_error() !== JSON_ERROR_NONE) {
             error_log("JSON decode error: " . json_last_error_msg());
             
             // Coba sebagai serialized array
             $testResults = @unserialize($testInfo['results']);
             if ($testResults === false) {
-                // Fallback: simpan sebagai string untuk debugging
-                $testResults = $testInfo['results'];
-                error_log("Results is not JSON or serialized array, treating as string");
+                // Coba sebagai string array literal
+                if (preg_match('/^a:\d+:\{/', $testInfo['results'])) {
+                    error_log("Results appears to be serialized but unserialize failed");
+                }
+                
+                // Fallback: coba parse manual untuk data Kraepelin lama
+                if (strtoupper($testType) === 'KRAEPELIN') {
+                    $testResults = $this->repairOldKraepelinData($testInfo['results']);
+                } else {
+                    // Simpan sebagai string untuk debugging
+                    $testResults = $testInfo['results'];
+                    error_log("Results is not JSON or serialized array, treating as string");
+                }
             }
         }
         
         // Handle khusus untuk Kraepelin test
-        if (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults) && isset($testResults['deret'])) {
+        if (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)) {
             // Pastikan deret dalam format yang benar
-            if (is_string($testResults['deret'])) {
-                $decodedDeret = json_decode($testResults['deret'], true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $testResults['deret'] = $decodedDeret;
+            if (isset($testResults['deret'])) {
+                if (is_string($testResults['deret'])) {
+                    $decodedDeret = json_decode($testResults['deret'], true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $testResults['deret'] = $decodedDeret;
+                    } else {
+                        // Coba parse sebagai array literal
+                        if (preg_match('/^\[.*\]$/', $testResults['deret'])) {
+                            $evalDeret = @eval("return " . $testResults['deret'] . ";");
+                            if (is_array($evalDeret)) {
+                                $testResults['deret'] = $evalDeret;
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+// Fungsi untuk memperbaiki data Kraepelin lama
+function repairOldKraepelinData($resultsString) {
+    error_log("Attempting to repair old Kraepelin data: " . substr($resultsString, 0, 200));
+    
+    // Coba berbagai format kemungkinan
+    $patterns = [
+        // Pattern untuk array serialized
+        '/a:\d+:\{/',
+        // Pattern untuk JSON
+        '/^\{.*\}$/',
+        // Pattern untuk array literal
+        '/^\[.*\]$/'
+    ];
+    
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $resultsString)) {
+            error_log("Found pattern match: $pattern");
+            // Coba eval untuk array literal
+            if ($pattern === '/^\[.*\]$/') {
+                $repaired = @eval("return $resultsString;");
+                if (is_array($repaired)) {
+                    error_log("Successfully repaired using eval");
+                    return $repaired;
+                }
+            }
+        }
+    }
+    
+    // Fallback: return empty array dengan data original sebagai string
+    return [
+        'raw_data' => $resultsString,
+        'error' => 'Could not parse results data',
+        'answers' => [],
+        'total_score' => 0,
+        'total_questions' => 0,
+        'correct_answers' => 0,
+        'accuracy' => 0
+    ];
 }
 
 // Redirect jika hasil test tidak ditemukan
@@ -389,6 +451,14 @@ switch (strtoupper($testType)) {
             margin: 0 auto;
         }
         
+        .debug-info {
+            background-color: #ffe6e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+        }
+        
         @media print {
             .actions {
                 display: none;
@@ -401,6 +471,10 @@ switch (strtoupper($testType)) {
             .answers-container {
                 max-height: none;
                 overflow: visible;
+            }
+            
+            .debug-info {
+                display: none;
             }
         }
     </style>
@@ -476,7 +550,7 @@ switch (strtoupper($testType)) {
                     $iq = $testResults['iq_score'];
                     
                     if ($iq >= 130) {
-                        echo "<p><strong>Sangah Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
+                        echo "<p><strong>Sangat Superior:</strong> Kemampuan intelektual berada pada tingkat yang sangat tinggi.</p>";
                     } elseif ($iq >= 120) {
                         echo "<p><strong>Superior:</strong> Kemampuan intelektual di atas rata-rata.</p>";
                     } elseif ($iq >= 110) {
@@ -580,38 +654,41 @@ switch (strtoupper($testType)) {
         <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
         <div class="test-results">
             <h2>Hasil Kraepelin Test</h2>
-            <?php if (DEBUG_MODE): ?>
-                <div class="debug-info" style="background: #ffe6e6; padding: 15px; margin: 15px 0; border-radius: 5px;">
-                    <h3>🔧 Debug Information</h3>
-                    <p><strong>Total Soal:</strong> <?php echo $testResults['total_questions']; ?></p>
-                    <p><strong>Jawaban Benar:</strong> <?php echo $testResults['correct_answers']; ?></p>
-                    <p><strong>Akurasi:</strong> <?php echo number_format($testResults['accuracy'], 1); ?>%</p>
-                    <p><strong>Deret yang digunakan:</strong> <?php echo json_encode($testResults['deret']); ?></p>
-                </div>
-            <?php endif; ?>
             
+            <?php if (DEBUG_MODE): ?>
+            <div class="debug-info">
+                <h3>🔧 Debug Information (Hanya di Mode Development)</h3>
+                <p><strong>Total Soal:</strong> <?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></p>
+                <p><strong>Jawaban Benar:</strong> <?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></p>
+                <p><strong>Akurasi:</strong> <?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></p>
+                <?php if (isset($testResults['deret'])): ?>
+                <p><strong>Deret yang digunakan:</strong> <?php echo is_array($testResults['deret']) ? json_encode($testResults['deret']) : $testResults['deret']; ?></p>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+                            
             <div class="test-stats">
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_score']) ? $testResults['total_score'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Skor</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['correct_answers']) ? $testResults['correct_answers'] : 'N/A'; ?></div>
                     <div class="stat-label">Jawaban Benar</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['total_questions']) ? $testResults['total_questions'] : 'N/A'; ?></div>
                     <div class="stat-label">Total Soal</div>
                 </div>
-                
+                            
                 <div class="stat-card kraepelin-stat-card">
                     <div class="stat-value kraepelin-stat-value"><?php echo isset($testResults['accuracy']) ? number_format($testResults['accuracy'], 1) . '%' : 'N/A'; ?></div>
                     <div class="stat-label">Tingkat Akurasi</div>
                 </div>
             </div>
-            
+                            
             <div class="interpretation">
                 <h3>Interpretasi Hasil</h3>
                 <?php
@@ -638,7 +715,7 @@ switch (strtoupper($testType)) {
             <div class="answers-detail">
                 <h3>Detail Jawaban</h3>
                 <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
-            
+
                 <div class="answers-container">
                     <table class="answers-table kraepelin-answers-table">
                         <thead>
@@ -756,6 +833,9 @@ switch (strtoupper($testType)) {
                             <tr>
                                 <th>Baris</th>
                                 <th>Kolom</th>
+                                <th>Angka 1</th>
+                                <th>Angka 2</th>
+                                <th>Jawaban Benar</th>
                                 <th>Jawaban Anda</th>
                                 <th>Status</th>
                                 <th>Skor</th>
@@ -766,6 +846,9 @@ switch (strtoupper($testType)) {
                             <tr>
                                 <td><?php echo htmlspecialchars($answer['baris'] + 1); ?></td>
                                 <td><?php echo htmlspecialchars($answer['kolom'] + 1); ?></td>
+                                <td><?php echo htmlspecialchars($answer['num1']); ?></td>
+                                <td><?php echo htmlspecialchars($answer['num2']); ?></td>
+                                <td><?php echo htmlspecialchars($answer['expected']); ?></td>
                                 <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
                                     <?php echo htmlspecialchars($answer['jawaban']); ?>
                                 </td>
@@ -970,6 +1053,7 @@ switch (strtoupper($testType)) {
         
         <div class="actions">
             <a href="dashboard.php" class="btn">Kembali ke Dashboard</a>
+            <a href="history.php" class="btn btn-secondary">Lihat Riwayat</a>
             <a href="javascript:window.print()" class="btn btn-print">Cetak Hasil</a>
         </div>
     </div>
