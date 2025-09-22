@@ -134,71 +134,6 @@ function createRequiredTables() {
             return false;
         }
         
-        // Buat tabel participants jika belum ada
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS participants (
-                id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                password VARCHAR(255) NOT NULL,
-                role ENUM('admin', 'peserta') DEFAULT 'peserta',
-                birth_date DATE NULL,
-                phone VARCHAR(20) NULL,
-                education VARCHAR(100) NULL,
-                position VARCHAR(100) NULL,
-                major VARCHAR(100) NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        ");
-        
-        // Buat tabel test_results jika belum ada
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS test_results (
-                id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                participant_id INT(11) NOT NULL,
-                test_type ENUM('TIKI', 'KRAEPELIN', 'PAULI', 'IST') NOT NULL,
-                results TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
-                INDEX idx_participant_id (participant_id),
-                INDEX idx_test_type (test_type),
-                INDEX idx_created_at (created_at)
-            )
-        ");
-        
-        // Buat tabel tiki_norms dengan struktur yang sesuai PDF
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS tiki_norms (
-                id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                subtest VARCHAR(20) NOT NULL,
-                question_number INT(11) NOT NULL,
-                correct_answer VARCHAR(10) NOT NULL,
-                raw_score INT(11) NOT NULL,
-                weighted_score INT(11) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_norm (subtest, question_number)
-            )
-        ");
-        
-        // Buat tabel tiki_questions dengan struktur lengkap
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS tiki_questions (
-                id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                subtest VARCHAR(20) NOT NULL,
-                question_number INT(11) NOT NULL,
-                question_text TEXT NOT NULL,
-                option_a VARCHAR(255) NOT NULL,
-                option_b VARCHAR(255) NOT NULL,
-                option_c VARCHAR(255) NOT NULL,
-                option_d VARCHAR(255) NOT NULL,
-                option_e VARCHAR(255) NULL,
-                option_f VARCHAR(255) NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_question (subtest, question_number)
-            )
-        ");
-        
         // Buat tabel tiki_conversion untuk konversi skor ke IQ
         $db->exec("
             CREATE TABLE IF NOT EXISTS tiki_conversion (
@@ -210,7 +145,7 @@ function createRequiredTables() {
             )
         ");
         
-        // Insert data konversi skor ke IQ berdasarkan PDF halaman 9
+        // Insert data konversi skor ke IQ
         $conversionData = [
             [96, 145, 'Sangat Superior'], [95, 144, 'Sangat Superior'],
             [94, 143, 'Sangat Superior'], [93, 142, 'Sangat Superior'],
