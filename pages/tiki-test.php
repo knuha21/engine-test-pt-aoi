@@ -1,5 +1,4 @@
 <?php
-
 // Gunakan require_once untuk menghindari multiple includes
 require_once __DIR__ . '/../bootstrap.php';
 
@@ -9,7 +8,7 @@ requireLogin();
 // Ambil data peserta dari database
 $db = getDBConnection();
 $participant_id = $_SESSION['participant_id'];
-$participant_query = $db->prepare("SELECT name, email FROM participants WHERE id = ?");
+$participant_query = $db->prepare("SELECT * FROM participants WHERE id = ?");
 $participant_query->execute([$participant_id]);
 $participant = $participant_query->fetch(PDO::FETCH_ASSOC);
 
@@ -28,14 +27,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         $tikiTest = new TIKITest();
-        $jawaban = $_POST['answers'];
+        
+        // Process answers
+        $jawaban = [];
+        foreach ($_POST['answers'] as $subtest => $questions) {
+            foreach ($questions as $questionNumber => $answer) {
+                if (is_array($answer)) {
+                    // Multiple answers (checkboxes)
+                    $jawaban[$subtest][$questionNumber] = implode(', ', $answer);
+                } else {
+                    // Single answer (radio)
+                    $jawaban[$subtest][$questionNumber] = $answer;
+                }
+            }
+        }
+        
         $hasilOlahan = $tikiTest->prosesJawaban($jawaban);
-        $grafik = $tikiTest->generateGrafik($hasilOlahan);
         
         // Simpan ke database
         if ($tikiTest->simpanHasilTest($_SESSION['participant_id'], $hasilOlahan)) {
             // Redirect ke results
-            header("Location: results.php?test=tiki");
+            header("Location: results.php?test=tiki&id=" . $db->lastInsertId());
             exit();
         } else {
             $error = "Gagal menyimpan hasil test. Silakan coba lagi.";
@@ -49,25 +61,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $tikiTest = new TIKITest();
 $soal = $tikiTest->getAllSoal();
 
+// Group soal by subtest
+$soalBySubtest = [];
+foreach ($soal as $item) {
+    $soalBySubtest[$item['subtest']][] = $item;
+}
+
 // Jika tidak ada soal, gunakan data default
 if (empty($soal)) {
     $soal = [
         [
             'question_id' => 1,
-            'subtest' => 'Verbal',
+            'subtest' => 'berhitung_angka',
             'question_number' => 1,
-            'question_text' => 'Manakah kata yang paling berbeda dari yang lain?',
-            'option_a' => 'Meja',
-            'option_b' => 'Kursi',
-            'option_c' => 'Lemari',
-            'option_d' => 'Lantai',
-            'option_e' => 'Rak',
-            'correct_answer' => 'D',
+            'question_text' => 'Hasil dari 5 + 7 adalah?',
+            'option_a' => '10',
+            'option_b' => '12',
+            'option_c' => '14',
+            'option_d' => '16',
+            'option_e' => null,
+            'option_f' => null,
+            'correct_answer' => 'B',
             'raw_score' => 1,
-            'weighted_score' => 5
+            'weighted_score' => 1
         ],
-        // ... tambahkan lebih banyak soal default jika diperlukan
+        [
+            'question_id' => 2,
+            'subtest' => 'gabungan_bagian',
+            'question_number' => 1,
+            'question_text' => 'Pilih dua bagian yang membentuk gambar utuh:',
+            'option_a' => 'Bagian A',
+            'option_b' => 'Bagian B',
+            'option_c' => 'Bagian C',
+            'option_d' => 'Bagian D',
+            'option_e' => 'Bagian E',
+            'option_f' => 'Bagian F',
+            'correct_answer' => 'A, C',
+            'raw_score' => 1,
+            'weighted_score' => 1
+        ]
     ];
+    
+    foreach ($soal as $item) {
+        $soalBySubtest[$item['subtest']][] = $item;
+    }
 }
 ?>
 
@@ -94,7 +131,7 @@ if (empty($soal)) {
         }
         
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             background-color: white;
             border-radius: 10px;
@@ -234,6 +271,40 @@ if (empty($soal)) {
             margin-right: 10px;
         }
         
+        /* Multiple answers style */
+        .multiple-answers {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .multiple-answers label {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 2px solid #e2e6ea;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .multiple-answers label:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .multiple-answers input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .answer-preview {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        
         .navigation {
             display: flex;
             justify-content: space-between;
@@ -290,6 +361,19 @@ if (empty($soal)) {
             border-left: 4px solid #dc3545;
         }
         
+        .subtest-section {
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+        
+        .subtest-section h2 {
+            color: #6a11cb;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
         @media (max-width: 768px) {
             .question-header {
                 flex-direction: column;
@@ -308,23 +392,26 @@ if (empty($soal)) {
             button {
                 width: 100%;
             }
+            
+            .multiple-answers {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>TIKI Test (Tes Inteligensi Kolektif Indonesia)</h1>
-            <p class="subtitle">PT. Apparel One Indonesia</p>
-        </header>
-        
+    <div class="container">        
         <div class="test-info">
             <p><strong>Peserta:</strong> <?php echo htmlspecialchars($participant['name']); ?> | <strong>Email:</strong> <?php echo htmlspecialchars($participant['email']); ?></p>
+            <?php if ($participant['birth_date']): ?>
+            <p><strong>Tanggal Lahir:</strong> <?php echo date('d/m/Y', strtotime($participant['birth_date'])); ?> | 
+            <strong>Usia:</strong> <?php echo floor((time() - strtotime($participant['birth_date'])) / 31556926); ?> tahun</p>
+            <?php endif; ?>
         </div>
         
         <div class="instructions">
             <h3>Petunjuk Pengerjaan</h3>
-            <p>Pilih satu jawaban yang paling benar untuk setiap soal. Jawaban tidak dapat diubah setelah melanjutkan ke soal berikutnya.</p>
+            <p>Pilih jawaban yang paling benar untuk setiap soal. Untuk soal dengan multiple answers, pilih minimal 2 jawaban. Jawaban tidak dapat diubah setelah melanjutkan ke soal berikutnya.</p>
         </div>
         
         <?php if (isset($error)): ?>
@@ -344,53 +431,65 @@ if (empty($soal)) {
         </div>
         
         <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="tiki-test-form">
-            <?php foreach ($soal as $index => $item): ?>
-            <div class="question-container" id="question-<?php echo $index; ?>" style="<?php echo $index > 0 ? 'display: none;' : ''; ?>">
-                <div class="question-header">
-                    <div class="question-number">Soal #<?php echo $item['question_number']; ?></div>
-                    <div class="subtest-name"><?php echo htmlspecialchars($item['subtest']); ?></div>
-                </div>
+            <?php 
+            $questionIndex = 0;
+            foreach ($soalBySubtest as $subtest => $questions): 
+                $subtestName = $tikiTest->getSubtestName($subtest);
+            ?>
+            <div class="subtest-section">
+                <h2><?php echo htmlspecialchars($subtestName); ?></h2>
                 
-                <div class="question-text">
-                    <p><?php echo htmlspecialchars($item['question_text']); ?></p>
+                <?php foreach ($questions as $item): ?>
+                <div class="question-container" id="question-<?php echo $questionIndex; ?>" style="<?php echo $questionIndex > 0 ? 'display: none;' : ''; ?>">
+                    <div class="question-header">
+                        <div class="question-number">Soal #<?php echo $item['question_number']; ?></div>
+                        <div class="subtest-name"><?php echo htmlspecialchars($subtestName); ?></div>
+                    </div>
+                    
+                    <div class="question-text">
+                        <p><?php echo htmlspecialchars($item['question_text']); ?></p>
+                    </div>
+                    
+                    <div class="options-container">
+                        <?php if (in_array($subtest, ['gabungan_bagian', 'hubungan_angka', 'abstraksi_non_verbal'])): ?>
+                        <!-- Multiple answers -->
+                        <div class="multiple-answers">
+                            <?php for ($i = 'a'; $i <= 'f'; $i++): ?>
+                                <?php if (!empty($item['option_' . $i])): ?>
+                                <label>
+                                    <input type="checkbox" name="answers[<?php echo $subtest; ?>][<?php echo $item['question_number']; ?>][]" value="<?php echo strtoupper($i); ?>">
+                                    <span><?php echo strtoupper($i) . '. ' . htmlspecialchars($item['option_' . $i]); ?></span>
+                                </label>
+                                <?php endif; ?>
+                            <?php endfor; ?>
+                        </div>
+                        <div class="answer-preview" id="preview-<?php echo $subtest; ?>-<?php echo $item['question_number']; ?>">
+                            Jawaban: <span class="selected-answers"></span>
+                        </div>
+                        <?php else: ?>
+                        <!-- Single answer -->
+                        <?php for ($i = 'a'; $i <= 'd'; $i++): ?>
+                            <?php if (!empty($item['option_' . $i])): ?>
+                            <label class="option">
+                                <input type="radio" name="answers[<?php echo $subtest; ?>][<?php echo $item['question_number']; ?>]" value="<?php echo strtoupper($i); ?>" required>
+                                <span><?php echo strtoupper($i) . '. ' . htmlspecialchars($item['option_' . $i]); ?></span>
+                            </label>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="navigation">
+                        <button type="button" class="btn-prev" onclick="showQuestion(<?php echo $questionIndex - 1; ?>)" <?php echo $questionIndex === 0 ? 'disabled' : ''; ?>>Sebelumnya</button>
+                        
+                        <?php if ($questionIndex < count($soal) - 1): ?>
+                        <button type="button" class="btn-next" onclick="validateAndNext(<?php echo $questionIndex; ?>)">Selanjutnya</button>
+                        <?php else: ?>
+                        <button type="submit" class="btn-submit">Kirim Jawaban</button>
+                        <?php endif; ?>
+                    </div>
                 </div>
-                
-                <div class="options-container">
-                    <label class="option">
-                        <input type="radio" name="answers[<?php echo $item['subtest']; ?>][<?php echo $item['question_number']; ?>]" value="A" required>
-                        <span>A. <?php echo htmlspecialchars($item['option_a']); ?></span>
-                    </label>
-                    
-                    <label class="option">
-                        <input type="radio" name="answers[<?php echo $item['subtest']; ?>][<?php echo $item['question_number']; ?>]" value="B">
-                        <span>B. <?php echo htmlspecialchars($item['option_b']); ?></span>
-                    </label>
-                    
-                    <label class="option">
-                        <input type="radio" name="answers[<?php echo $item['subtest']; ?>][<?php echo $item['question_number']; ?>]" value="C">
-                        <span>C. <?php echo htmlspecialchars($item['option_c']); ?></span>
-                    </label>
-                    
-                    <label class="option">
-                        <input type="radio" name="answers[<?php echo $item['subtest']; ?>][<?php echo $item['question_number']; ?>]" value="D">
-                        <span>D. <?php echo htmlspecialchars($item['option_d']); ?></span>
-                    </label>
-                    
-                    <label class="option">
-                        <input type="radio" name="answers[<?php echo $item['subtest']; ?>][<?php echo $item['question_number']; ?>]" value="E">
-                        <span>E. <?php echo htmlspecialchars($item['option_e']); ?></span>
-                    </label>
-                </div>
-                
-                <div class="navigation">
-                    <button type="button" class="btn-prev" onclick="showQuestion(<?php echo $index - 1; ?>)" <?php echo $index === 0 ? 'disabled' : ''; ?>>Sebelumnya</button>
-                    
-                    <?php if ($index < count($soal) - 1): ?>
-                    <button type="button" class="btn-next" onclick="validateAndNext(<?php echo $index; ?>)">Selanjutnya</button>
-                    <?php else: ?>
-                    <button type="submit" class="btn-submit">Kirim Jawaban</button>
-                    <?php endif; ?>
-                </div>
+                <?php $questionIndex++; endforeach; ?>
             </div>
             <?php endforeach; ?>
         </form>
@@ -424,19 +523,33 @@ if (empty($soal)) {
         // Fungsi untuk memvalidasi dan lanjut ke soal berikutnya
         function validateAndNext(index) {
             const currentQuestion = document.getElementById('question-' + index);
-            const options = currentQuestion.querySelectorAll('input[type="radio"]');
-            let answered = false;
+            const subtest = questions[index].subtest;
             
-            // Cek apakah sudah memilih jawaban
-            options.forEach(option => {
-                if (option.checked) {
-                    answered = true;
+            if (['gabungan_bagian', 'hubungan_angka', 'abstraksi_non_verbal'].includes(subtest)) {
+                // Validasi multiple answers
+                const checkboxes = currentQuestion.querySelectorAll('input[type="checkbox"]');
+                const checked = Array.from(checkboxes).some(cb => cb.checked);
+                
+                if (!checked) {
+                    alert('Silakan pilih minimal satu jawaban.');
+                    return;
                 }
-            });
-            
-            if (!answered) {
-                alert('Silakan pilih jawaban sebelum melanjutkan.');
-                return;
+                
+                // Pastikan minimal 2 jawaban untuk multiple answers
+                const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+                if (checkedCount < 2) {
+                    alert('Silakan pilih minimal 2 jawaban untuk soal ini.');
+                    return;
+                }
+            } else {
+                // Validasi single answer
+                const radios = currentQuestion.querySelectorAll('input[type="radio"]');
+                const answered = Array.from(radios).some(radio => radio.checked);
+                
+                if (!answered) {
+                    alert('Silakan pilih jawaban sebelum melanjutkan.');
+                    return;
+                }
             }
             
             // Lanjut ke soal berikutnya
@@ -461,7 +574,7 @@ if (empty($soal)) {
         
         // Event listener untuk opsi jawaban
         document.addEventListener('DOMContentLoaded', function() {
-            // Tambahkan event listener untuk semua opsi
+            // Tambahkan event listener untuk semua opsi single answer
             document.querySelectorAll('.option').forEach(option => {
                 option.addEventListener('click', function() {
                     // Hapus selected dari semua opsi dalam question yang sama
@@ -476,6 +589,23 @@ if (empty($soal)) {
                     // Centang radio button
                     const radio = this.querySelector('input[type="radio"]');
                     radio.checked = true;
+                });
+            });
+            
+            // Event listener untuk multiple answers
+            document.querySelectorAll('.multiple-answers input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const name = this.name;
+                    const matches = name.match(/\[(.*?)\]\[(\d+)\]/);
+                    const subtest = matches[1];
+                    const questionNumber = matches[2];
+                    
+                    const selected = Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+                        .map(cb => cb.value)
+                        .sort()
+                        .join(', ');
+                    
+                    document.getElementById(`preview-${subtest}-${questionNumber}`).querySelector('.selected-answers').textContent = selected;
                 });
             });
             
