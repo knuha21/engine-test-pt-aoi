@@ -161,6 +161,11 @@ if (!defined('APP_DEBUG')) {
     define('APP_DEBUG', true);
 }
 
+if (strpos($_SERVER['REQUEST_URI'], 'tiki-test') !== false || 
+    (strpos($_SERVER['REQUEST_URI'], 'results.php') !== false && isset($_GET['test']) && $_GET['test'] === 'tiki')) {
+    define('TIKI_TEST', true);
+}
+
 
 // Set session timeout untuk deret (10 menit)
 if (isset($_SESSION['kraepelin_generated'])) {
