@@ -1,5 +1,12 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// // debug_url_source.php
+// error_log("Accessed results.php with parameters: " . print_r($_GET, true));
+// error_log("Referrer: " . $_SERVER['HTTP_REFERER']);
+// file_put_contents('debug_log.txt', date('Y-m-d H:i:s') . " - " . print_r($_GET, true) . "\n", FILE_APPEND);
 
 // Pastikan user sudah login
 requireLogin();
@@ -16,7 +23,7 @@ if (!$testId || !$testType) {
 
 // Ambil informasi hasil test
 $testQuery = $db->prepare("
-    SELECT r.*, p.name as participant_name, p.email 
+    SELECT r.*, p.name as participant_name, p.email, p.birth_date, p.phone, p.education, p.position, p.major 
     FROM test_results r 
     JOIN participants p ON r.participant_id = p.id 
     WHERE r.id = ? AND r.test_type = ?
@@ -459,6 +466,126 @@ switch (strtoupper($testType)) {
             border-left: 4px solid #dc3545;
         }
         
+        /* TIKI Specific Styles */
+        .test-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .test-header table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .test-header td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .test-header td:first-child {
+            font-weight: 600;
+            color: #333;
+            width: 120px;
+        }
+        
+        .score-summary {
+            margin: 20px 0;
+        }
+        
+        .score-summary table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .score-summary th {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .score-summary td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        
+        .score-summary .total-row {
+            background-color: #e8f4fc;
+            font-weight: bold;
+        }
+        
+        .score-summary .total-row td {
+            border-top: 2px solid #6a11cb;
+        }
+        
+        .answers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .answer-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .answer-item.correct {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .answer-item.incorrect {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .question-num {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .user-answer {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .correct-answer {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .status {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .test-footer {
+            margin-top: 40px;
+            text-align: center;
+            border-top: 2px solid #333;
+            padding-top: 20px;
+        }
+        
+        .examiner {
+            margin-top: 40px;
+            text-align: right;
+            font-weight: bold;
+            font-style: italic;
+        }
+        
         @media print {
             .actions {
                 display: none;
@@ -476,16 +603,37 @@ switch (strtoupper($testType)) {
             .debug-info {
                 display: none;
             }
+            
+            .grafik-container {
+                page-break-inside: avoid;
+            }
+            
+            .score-summary table {
+                page-break-inside: avoid;
+            }
+            
+            .answers-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+            
+            .test-footer {
+                page-break-before: avoid;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .answers-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .test-header table {
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Hasil <?php echo htmlspecialchars($testTitle); ?></h1>
-            <p>PT. Apparel One Indonesia</p>
-        </header>
-        
+    <div class="container">        
         <div class="test-info">
             <h2>Informasi Peserta</h2>
             <p><strong>Nama:</strong> <?php echo htmlspecialchars($testInfo['participant_name']); ?></p>
@@ -496,52 +644,79 @@ switch (strtoupper($testType)) {
         
         <?php if (strtoupper($testType) === 'TIKI' && is_array($testResults)): ?>
         <div class="test-results">
-            <h2>Hasil TIKI Test</h2>
+            <h2>HASIL SKORING TEST IQ</h2>
+            <h3>BINABUSANA INTERNUSA GROUP</h3>
             
-            <div class="test-stats">
-                <?php if (isset($testResults['iq_score'])): ?>
-                <div class="stat-card tiki-stat-card">
-                    <div class="stat-value tiki-stat-value"><?php echo $testResults['iq_score']; ?></div>
-                    <div class="stat-label">Skor IQ</div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($testResults['total_score'])): ?>
-                <div class="stat-card tiki-stat-card">
-                    <div class="stat-value tiki-stat-value"><?php echo $testResults['total_score']; ?></div>
-                    <div class="stat-label">Total Skor</div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($testResults['correct_answers'])): ?>
-                <div class="stat-card tiki-stat-card">
-                    <div class="stat-value tiki-stat-value"><?php echo $testResults['correct_answers']; ?></div>
-                    <div class="stat-label">Jawaban Benar</div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($testResults['total_questions'])): ?>
-                <div class="stat-card tiki-stat-card">
-                    <div class="stat-value tiki-stat-value"><?php echo $testResults['total_questions']; ?></div>
-                    <div class="stat-label">Total Soal</div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($testResults['accuracy'])): ?>
-                <div class="stat-card tiki-stat-card">
-                    <div class="stat-value tiki-stat-value"><?php echo number_format($testResults['accuracy'], 1); ?>%</div>
-                    <div class="stat-label">Tingkat Akurasi</div>
-                </div>
-                <?php endif; ?>
+            <div class="test-header">
+                <table>
+                    <tr>
+                        <td><strong>Nomor Tes</strong></td>
+                        <td>: <?php echo $testInfo['id']; ?></td>
+                        <td><strong>Tanggal Lahir</strong></td>
+                        <td>: <?php echo $testInfo['birth_date'] ? date('d/m/Y', strtotime($testInfo['birth_date'])) : 'N/A'; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nama</strong></td>
+                        <td>: <?php echo htmlspecialchars($testInfo['participant_name']); ?></td>
+                        <td><strong>Usia</strong></td>
+                        <td>: <?php echo $testInfo['birth_date'] ? floor((time() - strtotime($testInfo['birth_date'])) / 31556926) : 'N/A'; ?> tahun</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nomor HP</strong></td>
+                        <td>: <?php echo $testInfo['phone'] ?? 'N/A'; ?></td>
+                        <td><strong>Pendidikan</strong></td>
+                        <td>: <?php echo $testInfo['education'] ?? 'N/A'; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Posisi</strong></td>
+                        <td>: <?php echo $testInfo['position'] ?? 'N/A'; ?></td>
+                        <td><strong>Jurusan</strong></td>
+                        <td>: <?php echo $testInfo['major'] ?? 'N/A'; ?></td>
+                    </tr>
+                </table>
             </div>
             
-            <!-- Tampilkan grafik jika ada -->
+            <!-- Grafik -->
             <?php if (isset($testResults['grafik'])): ?>
-            <div class="grafik-container">
-                <h3>Grafik Hasil Test</h3>
+            <div class="grafik-section">
+                <h3>Graphs IQ TIKI</h3>
                 <?php echo $testResults['grafik']; ?>
             </div>
             <?php endif; ?>
+            
+            <!-- Skor dan IQ -->
+            <div class="score-summary">
+                <table>
+                    <tr>
+                        <th>Subtest</th>
+                        <th>Skor Peserta</th>
+                        <th>Standard Score</th>
+                        <th>Kategori</th>
+                    </tr>
+                    <?php foreach ($testResults['subtest_scores'] as $subtest => $score): ?>
+                    <tr>
+                        <td><?php echo $testResults['subtest_names'][$subtest] ?? $subtest; ?></td>
+                        <td><?php echo $score; ?></td>
+                        <td><?php echo $score; ?></td>
+                        <td>
+                            <?php 
+                            if ($score >= 30) echo 'Sangat Baik';
+                            elseif ($score >= 25) echo 'Baik';
+                            elseif ($score >= 20) echo 'Cukup';
+                            elseif ($score >= 15) echo 'Sedang';
+                            else echo 'Perlu Improvement';
+                            ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <tr class="total-row">
+                        <td><strong>Total Skor</strong></td>
+                        <td><strong><?php echo $testResults['total_score']; ?></strong></td>
+                        <td><strong>Skor IQ</strong></td>
+                        <td><strong><?php echo $testResults['iq_score']; ?> (<?php echo $testResults['iq_category']; ?>)</strong></td>
+                    </tr>
+                </table>
+            </div>
             
             <div class="interpretation">
                 <h3>Interpretasi Hasil TIKI Test</h3>
@@ -570,78 +745,30 @@ switch (strtoupper($testType)) {
                 ?>
             </div>
             
-            <!-- Tampilkan skor per subtest jika ada -->
-            <?php if (isset($testResults['subtest_scores']) && is_array($testResults['subtest_scores'])): ?>
-            <div class="subtest-scores">
-                <h3>Skor per Subtest</h3>
-                <div class="test-stats">
-                    <?php foreach ($testResults['subtest_scores'] as $subtest => $score): 
-                        $subtestNames = [
-                            'Verbal' => 'Kemampuan Verbal',
-                            'Numerik' => 'Kemampuan Numerik',
-                            'Logika' => 'Kemampuan Logika',
-                            'Spasial' => 'Kemampuan Spasial'
-                        ];
-                        $subtestName = $subtestNames[$subtest] ?? $subtest;
-                    ?>
-                    <div class="stat-card tiki-stat-card">
-                        <div class="stat-value tiki-stat-value"><?php echo $score; ?></div>
-                        <div class="stat-label"><?php echo $subtestName; ?></div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            
+            <!-- Detail jawaban -->
             <?php if (isset($testResults['answers']) && is_array($testResults['answers']) && count($testResults['answers']) > 0): ?>
             <div class="answers-detail">
                 <h3>Detail Jawaban</h3>
-                <p>Berikut adalah detail jawaban yang telah Anda berikan:</p>
-                
-                <div class="answers-container">
-                    <table class="answers-table tiki-answers-table">
-                        <thead>
-                            <tr>
-                                <th>Subtest</th>
-                                <th>Soal</th>
-                                <th>Jawaban Anda</th>
-                                <th>Jawaban Benar</th>
-                                <th>Status</th>
-                                <th>Skor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php 
-                            $subtestNames = [
-                                'Verbal' => 'Kemampuan Verbal',
-                                'Numerik' => 'Kemampuan Numerik',
-                                'Logika' => 'Kemampuan Logika',
-                                'Spasial' => 'Kemampuan Spasial'
-                            ];
-                            
-                            foreach ($testResults['answers'] as $answer): 
-                                $subtestName = $subtestNames[$answer['subtest']] ?? $answer['subtest'];
-                            ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($subtestName); ?></td>
-                                <td><?php echo htmlspecialchars($answer['question_number']); ?></td>
-                                <td class="<?php echo $answer['is_correct'] ? 'correct-answer' : 'incorrect-answer'; ?>">
-                                    <?php echo htmlspecialchars($answer['user_answer']); ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($answer['correct_answer']); ?></td>
-                                <td>
-                                    <?php if ($answer['is_correct']): ?>
-                                    <span class="correct-answer">Benar</span>
-                                    <?php else: ?>
-                                    <span class="incorrect-answer">Salah</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo $answer['score']; ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <?php foreach ($testResults['subtest_names'] as $subtest => $name): ?>
+                <div class="subtest-answers">
+                    <h4><?php echo $name; ?></h4>
+                    <div class="answers-grid">
+                        <?php 
+                        $subtestAnswers = array_filter($testResults['answers'], function($a) use ($subtest) {
+                            return $a['subtest'] === $subtest;
+                        });
+                        
+                        foreach ($subtestAnswers as $answer): ?>
+                        <div class="answer-item <?php echo $answer['is_correct'] ? 'correct' : 'incorrect'; ?>">
+                            <span class="question-num"><?php echo $answer['question_number']; ?></span>
+                            <span class="user-answer"><?php echo $answer['user_answer']; ?></span>
+                            <span class="correct-answer"><?php echo $answer['correct_answer']; ?></span>
+                            <span class="status"><?php echo $answer['is_correct'] ? '✓' : '✗'; ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
+                <?php endforeach; ?>
             </div>
             <?php else: ?>
             <div class="answers-detail">
@@ -649,6 +776,12 @@ switch (strtoupper($testType)) {
                 <p>Data detail jawaban tidak tersedia.</p>
             </div>
             <?php endif; ?>
+            
+            <!-- Footer -->
+            <div class="test-footer">
+                <p>Tanggal Test: <?php echo date('l, d F Y', strtotime($testInfo['created_at'])); ?></p>
+                <p class="examiner">PEMERIKSA<br>Recruitment BBI Group</p>
+            </div>
         </div>
         
         <?php elseif (strtoupper($testType) === 'KRAEPELIN' && is_array($testResults)): ?>
