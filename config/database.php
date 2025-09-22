@@ -7,13 +7,13 @@
  * dengan environment Anda.
  * 
  * @package Config
- * @version 1.1
+ * @version 1.2
  */
 
 // Pastikan tidak ada akses langsung ke file ini
-// if (!defined('ROOT_ACCESS')) {
-//     die('Akses langsung tidak diizinkan.');
-// }
+if (!defined('ROOT_ACCESS')) {
+    die('Akses langsung tidak diizinkan.');
+}
 
 // Mode debug - set ke true untuk development
 define('DEBUG_MODE', true);
@@ -142,6 +142,11 @@ function createRequiredTables() {
                 email VARCHAR(255) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
                 role ENUM('admin', 'peserta') DEFAULT 'peserta',
+                birth_date DATE NULL,
+                phone VARCHAR(20) NULL,
+                education VARCHAR(100) NULL,
+                position VARCHAR(100) NULL,
+                major VARCHAR(100) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
@@ -162,19 +167,100 @@ function createRequiredTables() {
             )
         ");
         
-        // Buat tabel tiki_norms jika belum ada
+        // Buat tabel tiki_norms dengan struktur yang sesuai PDF
         $db->exec("
             CREATE TABLE IF NOT EXISTS tiki_norms (
                 id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                subtest VARCHAR(10) NOT NULL,
+                subtest VARCHAR(20) NOT NULL,
                 question_number INT(11) NOT NULL,
-                correct_answer VARCHAR(1) NOT NULL,
+                correct_answer VARCHAR(10) NOT NULL,
                 raw_score INT(11) NOT NULL,
-                weighted_score DECIMAL(5,2) NOT NULL,
+                weighted_score INT(11) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_norm (subtest, question_number)
             )
         ");
+        
+        // Buat tabel tiki_questions dengan struktur lengkap
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS tiki_questions (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                subtest VARCHAR(20) NOT NULL,
+                question_number INT(11) NOT NULL,
+                question_text TEXT NOT NULL,
+                option_a VARCHAR(255) NOT NULL,
+                option_b VARCHAR(255) NOT NULL,
+                option_c VARCHAR(255) NOT NULL,
+                option_d VARCHAR(255) NOT NULL,
+                option_e VARCHAR(255) NULL,
+                option_f VARCHAR(255) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_question (subtest, question_number)
+            )
+        ");
+        
+        // Buat tabel tiki_conversion untuk konversi skor ke IQ
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS tiki_conversion (
+                id INT(11) PRIMARY KEY AUTO_INCREMENT,
+                total_score INT(11) NOT NULL,
+                iq_score INT(11) NOT NULL,
+                category VARCHAR(50) NULL,
+                UNIQUE KEY unique_conversion (total_score)
+            )
+        ");
+        
+        // Insert data konversi skor ke IQ berdasarkan PDF halaman 9
+        $conversionData = [
+            [96, 145, 'Sangat Superior'], [95, 144, 'Sangat Superior'],
+            [94, 143, 'Sangat Superior'], [93, 142, 'Sangat Superior'],
+            [92, 140, 'Sangat Superior'], [91, 139, 'Sangat Superior'],
+            [90, 138, 'Sangat Superior'], [89, 137, 'Sangat Superior'],
+            [88, 135, 'Sangat Superior'], [87, 134, 'Sangat Superior'],
+            [86, 133, 'Sangat Superior'], [85, 132, 'Sangat Superior'],
+            [84, 131, 'Sangat Superior'], [83, 130, 'Sangat Superior'],
+            [82, 129, 'Superior'], [81, 127, 'Superior'],
+            [80, 126, 'Superior'], [79, 125, 'Superior'],
+            [78, 124, 'Superior'], [77, 123, 'Superior'],
+            [76, 122, 'Superior'], [75, 120, 'Superior'],
+            [74, 119, 'Superior'], [73, 118, 'Superior'],
+            [72, 117, 'Superior'], [71, 115, 'Superior'],
+            [70, 114, 'Di Atas Rata-rata'], [69, 113, 'Di Atas Rata-rata'],
+            [68, 112, 'Di Atas Rata-rata'], [67, 110, 'Di Atas Rata-rata'],
+            [66, 109, 'Di Atas Rata-rata'], [65, 108, 'Di Atas Rata-rata'],
+            [64, 107, 'Di Atas Rata-rata'], [63, 106, 'Di Atas Rata-rata'],
+            [62, 105, 'Di Atas Rata-rata'], [61, 104, 'Di Atas Rata-rata'],
+            [60, 103, 'Di Atas Rata-rata'], [59, 102, 'Di Atas Rata-rata'],
+            [58, 100, 'Rata-rata'], [57, 99, 'Rata-rata'],
+            [56, 98, 'Rata-rata'], [55, 97, 'Rata-rata'],
+            [54, 96, 'Rata-rata'], [53, 94, 'Rata-rata'],
+            [52, 93, 'Rata-rata'], [51, 92, 'Rata-rata'],
+            [50, 91, 'Rata-rata'], [49, 90, 'Rata-rata'],
+            [48, 89, 'Rata-rata'], [47, 87, 'Rata-rata'],
+            [46, 86, 'Rata-rata'], [45, 85, 'Rata-rata'],
+            [44, 84, 'Rata-rata'], [43, 83, 'Rata-rata'],
+            [42, 81, 'Rata-rata'], [41, 80, 'Rata-rata'],
+            [40, 79, 'Rata-rata'], [39, 78, 'Rata-rata'],
+            [38, 77, 'Rata-rata'], [37, 75, 'Rata-rata'],
+            [36, 74, 'Rata-rata'], [35, 73, 'Rata-rata'],
+            [34, 72, 'Di Bawah Rata-rata'], [33, 71, 'Di Bawah Rata-rata'],
+            [32, 70, 'Di Bawah Rata-rata'], [31, 68, 'Di Bawah Rata-rata'],
+            [30, 67, 'Di Bawah Rata-rata'], [29, 66, 'Di Bawah Rata-rata'],
+            [28, 65, 'Di Bawah Rata-rata'], [27, 64, 'Di Bawah Rata-rata'],
+            [26, 62, 'Di Bawah Rata-rata'], [25, 61, 'Di Bawah Rata-rata'],
+            [24, 60, 'Di Bawah Rata-rata'], [23, 58, 'Di Bawah Rata-rata'],
+            [22, 57, 'Di Bawah Rata-rata'], [21, 56, 'Di Bawah Rata-rata']
+        ];
+        
+        $stmt = $db->prepare("
+            INSERT INTO tiki_conversion (total_score, iq_score, category) 
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE iq_score = VALUES(iq_score), category = VALUES(category)
+        ");
+        
+        foreach ($conversionData as $data) {
+            $stmt->execute($data);
+        }
         
         // Buat tabel kraepelin_norms jika belum ada
         $db->exec("
@@ -187,23 +273,6 @@ function createRequiredTables() {
                 interpretation TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_norm (subtest, question_number)
-            )
-        ");
-        
-        // Buat tabel tiki_questions jika belum ada
-        $db->exec("
-            CREATE TABLE IF NOT EXISTS tiki_questions (
-                id INT(11) PRIMARY KEY AUTO_INCREMENT,
-                subtest VARCHAR(10) NOT NULL,
-                question_number INT(11) NOT NULL,
-                question_text TEXT NOT NULL,
-                option_a VARCHAR(255) NOT NULL,
-                option_b VARCHAR(255) NOT NULL,
-                option_c VARCHAR(255) NOT NULL,
-                option_d VARCHAR(255) NOT NULL,
-                option_e VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_question (subtest, question_number)
             )
         ");
         
