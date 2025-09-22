@@ -482,12 +482,7 @@ foreach ($soal as $item) {
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>IST Test (Intelligenz Struktur Test)</h1>
-            <p class="subtitle">PT. Apparel One Indonesia</p>
-        </header>
-        
+    <div class="container">        
         <!-- Floating Timer -->
         <div class="floating-timer" id="floating-timer">
             <div id="timer">60:00</div>
