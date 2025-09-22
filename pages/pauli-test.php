@@ -360,11 +360,6 @@ for ($i = 0; $i < $jumlahBaris; $i++) {
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Pauli Test</h1>
-            <p class="subtitle">PT. Apparel One Indonesia</p>
-        </header>
-        
         <!-- Floating Timer -->
         <div class="floating-timer-pauli" id="floating-timer">
             <div class="progress-circle">
