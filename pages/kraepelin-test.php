@@ -379,17 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Kraepelin Test</h1>
-            <p class="subtitle">PT. Apparel One Indonesia</p>
-            <?php if (DEBUG_MODE && isset($_SESSION['kraepelin_deret'])): ?>
-            <div style="background: rgba(255,255,255,0.2); padding: 10px; margin-top: 10px; border-radius: 5px;">
-                <small>DEBUG: Deret ID <?php echo $_SESSION['kraepelin_generated']; ?></small>
-            </div>
-            <?php endif; ?>
-        </header>
-        
+    <div class="container">        
         <div class="test-info">
             <p><strong>Peserta:</strong> <?php echo htmlspecialchars($participant['name']); ?> | <strong>Email:</strong> <?php echo htmlspecialchars($participant['email']); ?></p>
         </div>
