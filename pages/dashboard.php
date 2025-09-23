@@ -131,6 +131,7 @@ try {
             <?php if (count($testHistory) > 0): ?>
             <div style="margin-top: 20px; text-align: center;">
                 <a href="history.php" class="btn-history">Lihat Semua Riwayat Test</a>
+                <a href="../create_scalable_test_tables.php" class="btn-history">create db</a>
             </div>
             <?php endif; ?>
         </div>
